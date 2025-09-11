@@ -41,6 +41,13 @@
       "description": "Browse backlog items with pagination (8 items per page)",
       "mode": "view",
       "entrypoint": "src/list-backlog.tsx"
+    },
+    {
+      "name": "list-builds",
+      "title": "List Builds",
+      "description": "View active and recent builds with live log streaming",
+      "mode": "view",
+      "entrypoint": "src/list-builds.tsx"
     }
   ],
   "preferences": [
