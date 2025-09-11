@@ -238,7 +238,7 @@ export default function Command() {
                 title="Previous Page"
                 onAction={() => fetchBacklogItems(currentPage - 1)}
                 icon={Icon.ChevronLeft}
-                shortcut={{ modifiers: ["cmd"], key: "p" }}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "arrowLeft" }}
               />
             )}
             {hasNextPage && (
@@ -246,7 +246,7 @@ export default function Command() {
                 title="Next Page"
                 onAction={() => fetchBacklogItems(currentPage + 1)}
                 icon={Icon.ChevronRight}
-                shortcut={{ modifiers: ["cmd"], key: "n" }}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "arrowRight" }}
               />
             )}
             <Action
@@ -321,7 +321,7 @@ export default function Command() {
                         />
                       }
                       icon={Icon.Rocket}
-                      shortcut={{ modifiers: ["cmd"], key: "a" }}
+                      shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
                     />
                     {workItemUrl && (
                       <Action.OpenInBrowser
@@ -353,7 +353,10 @@ export default function Command() {
                         title="Previous Page"
                         onAction={() => fetchBacklogItems(currentPage - 1)}
                         icon={Icon.ChevronLeft}
-                        shortcut={{ modifiers: ["cmd"], key: "p" }}
+                        shortcut={{
+                          modifiers: ["cmd", "shift"],
+                          key: "arrowLeft",
+                        }}
                       />
                     )}
                     {hasNextPage && (
@@ -361,7 +364,10 @@ export default function Command() {
                         title="Next Page"
                         onAction={() => fetchBacklogItems(currentPage + 1)}
                         icon={Icon.ChevronRight}
-                        shortcut={{ modifiers: ["cmd"], key: "n" }}
+                        shortcut={{
+                          modifiers: ["cmd", "shift"],
+                          key: "arrowRight",
+                        }}
                       />
                     )}
                     <Action

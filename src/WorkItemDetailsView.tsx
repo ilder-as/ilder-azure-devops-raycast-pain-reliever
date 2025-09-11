@@ -402,7 +402,7 @@ export default function WorkItemDetailsView({
                   />
                 }
                 icon={Icon.Rocket}
-                shortcut={{ modifiers: ["cmd"], key: "a" }}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
               />
             )}
             {workItemUrl && (

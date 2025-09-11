@@ -283,7 +283,7 @@ export default function Command() {
                         />
                       }
                       icon={Icon.Rocket}
-                      shortcut={{ modifiers: ["cmd"], key: "a" }}
+                      shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
                     />
                     {workItemUrl && (
                       <Action.OpenInBrowser
