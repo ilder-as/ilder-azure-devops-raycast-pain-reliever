@@ -3,7 +3,7 @@
   "name": "azure-devops-branch-helper",
   "title": "Azure DevOps Helper",
   "description": "Fetch Azure DevOps work items and generate standardized Git branch names",
-  "icon": "devops-icon.svg",
+  "icon": "devops-icon.png",
   "author": "tor_gjosaeter",
   "license": "MIT",
   "commands": [
