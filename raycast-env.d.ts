@@ -30,6 +30,8 @@ declare namespace Preferences {
   export type ActivateAndBranch = ExtensionPreferences & {}
   /** Preferences accessible in the `check-workitem` command */
   export type CheckWorkitem = ExtensionPreferences & {}
+  /** Preferences accessible in the `list-my-workitems` command */
+  export type ListMyWorkitems = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -39,5 +41,7 @@ declare namespace Arguments {
   export type ActivateAndBranch = {}
   /** Arguments passed to the `check-workitem` command */
   export type CheckWorkitem = {}
+  /** Arguments passed to the `list-my-workitems` command */
+  export type ListMyWorkitems = {}
 }
 
