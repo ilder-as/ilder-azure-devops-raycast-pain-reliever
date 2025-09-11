@@ -1,4 +1,12 @@
-import { Form, ActionPanel, Action, showToast, Toast, Clipboard, getPreferenceValues } from "@raycast/api";
+import {
+  Form,
+  ActionPanel,
+  Action,
+  showToast,
+  Toast,
+  Clipboard,
+  getPreferenceValues,
+} from "@raycast/api";
 import { useState } from "react";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -27,58 +35,65 @@ export default function Command() {
 
   async function fetchWorkItem(workItemId: string) {
     if (!workItemId) return;
-    
+
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
-      
+
       // Use full path to Azure CLI (common Homebrew locations)
-      const azCommand = '/opt/homebrew/bin/az'; // Apple Silicon
-      
+      const azCommand = "/opt/homebrew/bin/az"; // Apple Silicon
+
       let command = `${azCommand} boards work-item show --id ${workItemId} --output json`;
-      
+
       // Add organization parameter if specified in preferences
       if (preferences.azureOrganization) {
         command += ` --organization "${preferences.azureOrganization}"`;
       }
-      
+
       // Add project parameter if specified in preferences
       if (preferences.azureProject) {
         command += ` --project "${preferences.azureProject}"`;
       }
-      
+
       const { stdout } = await execAsync(command);
       const workItem: WorkItem = JSON.parse(stdout);
       const title = workItem.fields["System.Title"];
       setWorkItemTitle(title);
-      
+
       // Generate and copy branch name immediately
-      const generatedBranchName = convertToBranchName(workItemId, title, preferences.branchPrefix);
+      const generatedBranchName = convertToBranchName(
+        workItemId,
+        title,
+        preferences.branchPrefix,
+      );
       setBranchName(generatedBranchName);
       await Clipboard.copy(generatedBranchName);
       await showToast(Toast.Style.Success, "Copied!", `${generatedBranchName}`);
     } catch (error) {
-      await showToast(Toast.Style.Failure, "Error", "Azure CLI not found at /opt/homebrew/bin/az. Check installation.");
+      await showToast(
+        Toast.Style.Failure,
+        "Error",
+        "Azure CLI not found at /opt/homebrew/bin/az. Check installation.",
+      );
       console.error(error);
     } finally {
       setIsLoading(false);
     }
   }
 
-
   return (
     <Form
       isLoading={isLoading}
       actions={
         <ActionPanel>
-          <Action 
-            title="Fetch Work Item" 
+          <Action
+            title="Fetch Work Item"
             onAction={() => fetchWorkItem(currentWorkItemId)}
             icon="🔍"
           />
           {branchName && (
-            <Action.CopyToClipboard 
-              title="Copy Branch Name" 
+            <Action.CopyToClipboard
+              title="Copy Branch Name"
               content={branchName}
               shortcut={{ modifiers: ["cmd"], key: "c" }}
             />
@@ -100,30 +115,28 @@ export default function Command() {
           }
         }}
       />
-      
+
       {workItemTitle && (
-        <Form.Description 
-          title="✅ Work Item Title"
-          text={workItemTitle}
-        />
+        <Form.Description title="✅ Work Item Title" text={workItemTitle} />
       )}
-      
+
       {branchName && (
-        <Form.Description 
-          title="🌿 Generated Branch Name"
-          text={branchName}
-        />
+        <Form.Description title="🌿 Generated Branch Name" text={branchName} />
       )}
     </Form>
   );
 }
 
-function convertToBranchName(number: string, description: string, prefix: string): string {
+function convertToBranchName(
+  number: string,
+  description: string,
+  prefix: string,
+): string {
   const combined = `${number} ${description}`;
   const slug = combined
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  
+
   return `${prefix}${slug}`;
 }
