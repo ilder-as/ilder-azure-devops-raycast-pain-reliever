@@ -38,46 +38,31 @@ interface WorkItem {
     "System.CreatedDate": string;
     "System.ChangedDate": string;
     "Microsoft.VSTS.Common.Priority"?: number;
+    "Microsoft.VSTS.Common.StackRank"?: number;
   };
 }
 
-// The Azure CLI boards query returns work items directly as an array, not in a workItems wrapper
+const ITEMS_PER_PAGE = 8;
 
 export default function Command() {
   const [isLoading, setIsLoading] = useState(true);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
-  const [currentUser, setCurrentUser] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
 
-  async function getCurrentUser() {
-    try {
-      const azCommand = "/opt/homebrew/bin/az";
-
-      // Try to get the user in different formats to see which one works
-      const { stdout: userEmail } = await execAsync(
-        `${azCommand} account show --query user.name -o tsv`,
-      );
-
-      return userEmail.trim();
-    } catch (error) {
-      console.error("Failed to get current user:", error);
-      return null;
-    }
-  }
-
-  async function fetchMyWorkItems() {
+  async function fetchBacklogItems(page = 0) {
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
       const azCommand = "/opt/homebrew/bin/az";
 
-      const user = await getCurrentUser();
-      if (!user) {
-        throw new Error("Could not determine current Azure user");
-      }
-      setCurrentUser(user);
+      // Calculate SKIP value for pagination
+      const skipCount = page * ITEMS_PER_PAGE;
 
-      // Use @Me macro to find work items assigned to current user
-      let queryCommand = `${azCommand} boards query --wiql "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.Priority] ASC, [System.ChangedDate] DESC" --output json`;
+      // WIQL query to get backlog items (Product Backlog Items, User Stories, Features, Epics)
+      // Order by StackRank (backlog priority) and then by creation date
+      let queryCommand = `${azCommand} boards query --wiql "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.StackRank] ASC, [System.CreatedDate] DESC" --output json`;
 
       if (preferences.azureOrganization) {
         queryCommand += ` --organization "${preferences.azureOrganization}"`;
@@ -90,29 +75,38 @@ export default function Command() {
       const { stdout: queryResult } = await execAsync(queryCommand);
 
       // The Azure CLI boards query returns work items directly as an array
-      const workItemsData: WorkItem[] = JSON.parse(queryResult);
+      const allWorkItems: WorkItem[] = JSON.parse(queryResult);
 
-      if (workItemsData && workItemsData.length > 0) {
-        setWorkItems(workItemsData);
+      // Client-side pagination since WIQL doesn't support SKIP/TOP reliably
+      const startIndex = skipCount;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+      const pageItems = allWorkItems.slice(startIndex, endIndex);
 
+      setWorkItems(pageItems);
+      setTotalItems(allWorkItems.length);
+      setHasNextPage(endIndex < allWorkItems.length);
+      setCurrentPage(page);
+
+      const pageInfo = `Page ${page + 1} (${startIndex + 1}-${Math.min(endIndex, allWorkItems.length)} of ${allWorkItems.length})`;
+
+      if (pageItems.length > 0) {
         await showToast(
           Toast.Style.Success,
           "Loaded!",
-          `Found ${workItemsData.length} work items assigned to you`,
+          `${pageInfo} backlog items`,
         );
       } else {
-        setWorkItems([]);
         await showToast(
           Toast.Style.Success,
-          "No work items",
-          "No active work items assigned to you",
+          "No items",
+          "No backlog items found",
         );
       }
     } catch (error) {
       await showToast(
         Toast.Style.Failure,
         "Error",
-        "Failed to fetch work items",
+        "Failed to fetch backlog items",
       );
       console.error(error);
       setWorkItems([]);
@@ -220,14 +214,53 @@ export default function Command() {
     return `${prefix}${slug}`;
   }
 
+  function getPaginationTitle(): string {
+    if (totalItems === 0) return "Backlog";
+
+    const startIndex = currentPage * ITEMS_PER_PAGE + 1;
+    const endIndex = Math.min((currentPage + 1) * ITEMS_PER_PAGE, totalItems);
+    return `Backlog (${startIndex}-${endIndex} of ${totalItems})`;
+  }
+
   useEffect(() => {
-    fetchMyWorkItems();
+    fetchBacklogItems(0);
   }, []);
 
   return (
-    <List isLoading={isLoading} searchBarPlaceholder="Search work items...">
-      <List.Section title={`Work Items Assigned to ${currentUser || "You"}`}>
-        {workItems.map((workItem) => {
+    <List
+      isLoading={isLoading}
+      searchBarPlaceholder="Search backlog items..."
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section title="Pagination">
+            {currentPage > 0 && (
+              <Action
+                title="Previous Page"
+                onAction={() => fetchBacklogItems(currentPage - 1)}
+                icon={Icon.ChevronLeft}
+                shortcut={{ modifiers: ["cmd"], key: "p" }}
+              />
+            )}
+            {hasNextPage && (
+              <Action
+                title="Next Page"
+                onAction={() => fetchBacklogItems(currentPage + 1)}
+                icon={Icon.ChevronRight}
+                shortcut={{ modifiers: ["cmd"], key: "n" }}
+              />
+            )}
+            <Action
+              title="Refresh"
+              onAction={() => fetchBacklogItems(currentPage)}
+              icon={Icon.ArrowClockwise}
+              shortcut={{ modifiers: ["cmd"], key: "r" }}
+            />
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
+    >
+      <List.Section title={getPaginationTitle()}>
+        {workItems.map((workItem, index) => {
           const workItemUrl = getWorkItemUrl(workItem);
           const preferences = getPreferenceValues<Preferences>();
           const branchName = convertToBranchName(
@@ -235,6 +268,9 @@ export default function Command() {
             workItem.fields["System.Title"],
             preferences.branchPrefix,
           );
+
+          // Show position in overall backlog
+          const overallPosition = currentPage * ITEMS_PER_PAGE + index + 1;
 
           return (
             <List.Item
@@ -245,16 +281,18 @@ export default function Command() {
                 ),
                 tintColor: getStateColor(workItem.fields["System.State"]),
               }}
-              title={`#${workItem.id}: ${workItem.fields["System.Title"]}`}
-              subtitle={workItem.fields["System.WorkItemType"]}
+              title={`#${overallPosition}: ${workItem.fields["System.Title"]}`}
+              subtitle={`#${workItem.id} - ${workItem.fields["System.WorkItemType"]}`}
               accessories={[
                 {
                   text: workItem.fields["System.State"],
                   tooltip: `State: ${workItem.fields["System.State"]}`,
                 },
                 {
-                  text: workItem.fields["System.TeamProject"],
-                  tooltip: `Project: ${workItem.fields["System.TeamProject"]}`,
+                  text:
+                    workItem.fields["System.AssignedTo"]?.displayName ||
+                    "Unassigned",
+                  tooltip: `Assigned to: ${workItem.fields["System.AssignedTo"]?.displayName || "Unassigned"}`,
                 },
                 {
                   text: formatDate(workItem.fields["System.ChangedDate"]),
@@ -309,10 +347,26 @@ export default function Command() {
                       shortcut={{ modifiers: ["cmd"], key: "b" }}
                     />
                   </ActionPanel.Section>
-                  <ActionPanel.Section title="List Actions">
+                  <ActionPanel.Section title="Pagination">
+                    {currentPage > 0 && (
+                      <Action
+                        title="Previous Page"
+                        onAction={() => fetchBacklogItems(currentPage - 1)}
+                        icon={Icon.ChevronLeft}
+                        shortcut={{ modifiers: ["cmd"], key: "p" }}
+                      />
+                    )}
+                    {hasNextPage && (
+                      <Action
+                        title="Next Page"
+                        onAction={() => fetchBacklogItems(currentPage + 1)}
+                        icon={Icon.ChevronRight}
+                        shortcut={{ modifiers: ["cmd"], key: "n" }}
+                      />
+                    )}
                     <Action
-                      title="Refresh List"
-                      onAction={fetchMyWorkItems}
+                      title="Refresh"
+                      onAction={() => fetchBacklogItems(currentPage)}
                       icon={Icon.ArrowClockwise}
                       shortcut={{ modifiers: ["cmd"], key: "r" }}
                     />

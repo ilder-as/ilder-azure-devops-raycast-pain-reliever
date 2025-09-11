@@ -44,6 +44,14 @@ Configure the extension preferences in Raycast settings:
 - Provides actions to open, copy ID, title, or branch name
 - Entry point: `src/list-my-workitems.tsx`
 
+### 5. List Backlog (`list-backlog`)
+- Browse backlog items with pagination (8 items per page)
+- Shows backlog items ordered by StackRank (backlog priority) then creation date
+- Includes Product Backlog Items, User Stories, Features, Epics, Bugs, and Tasks
+- Client-side pagination with Previous/Next controls (⌘P/⌘N)
+- Shows position in overall backlog and current page information
+- Entry point: `src/list-backlog.tsx`
+
 ## Technical Architecture
 
 ### Dependencies

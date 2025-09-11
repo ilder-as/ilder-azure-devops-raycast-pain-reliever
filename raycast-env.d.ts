@@ -32,6 +32,8 @@ declare namespace Preferences {
   export type CheckWorkitem = ExtensionPreferences & {}
   /** Preferences accessible in the `list-my-workitems` command */
   export type ListMyWorkitems = ExtensionPreferences & {}
+  /** Preferences accessible in the `list-backlog` command */
+  export type ListBacklog = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -43,5 +45,7 @@ declare namespace Arguments {
   export type CheckWorkitem = {}
   /** Arguments passed to the `list-my-workitems` command */
   export type ListMyWorkitems = {}
+  /** Arguments passed to the `list-backlog` command */
+  export type ListBacklog = {}
 }
 

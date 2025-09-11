@@ -34,6 +34,13 @@
       "description": "View all work items assigned to you (Tasks, User Stories, Bugs, Features, etc.)",
       "mode": "view",
       "entrypoint": "src/list-my-workitems.tsx"
+    },
+    {
+      "name": "list-backlog",
+      "title": "List Backlog",
+      "description": "Browse backlog items with pagination (8 items per page)",
+      "mode": "view",
+      "entrypoint": "src/list-backlog.tsx"
     }
   ],
   "preferences": [
