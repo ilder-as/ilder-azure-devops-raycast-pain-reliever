@@ -199,9 +199,9 @@ export default function Command() {
           />
           {workItemUrl && (
             <Action.OpenInBrowser
-              title="Open Work Item (⌘W)"
+              title="Open Work Item (⌘I)"
               url={workItemUrl}
-              shortcut={{ modifiers: ["cmd"], key: "w" }}
+              shortcut={{ modifiers: ["cmd"], key: "i" }}
             />
           )}
           {branchUrl && (
@@ -257,7 +257,7 @@ export default function Command() {
 
       {workItemUrl && (
         <Form.Description
-          title="📋 Work Item URL (⌘W to open)"
+          title="📋 Work Item URL (⌘I to open)"
           text={workItemUrl}
         />
       )}
