@@ -43,7 +43,7 @@ export default function Command() {
 
   async function fetchWorkItem(workItemId: string) {
     if (!workItemId) return;
-    
+
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
@@ -51,11 +51,11 @@ export default function Command() {
 
       // Fetch work item details
       let fetchCommand = `${azCommand} boards work-item show --id ${workItemId} --output json`;
-      
+
       if (preferences.azureOrganization) {
         fetchCommand += ` --organization "${preferences.azureOrganization}"`;
       }
-      
+
       if (preferences.azureProject) {
         fetchCommand += ` --project "${preferences.azureProject}"`;
       }
@@ -66,8 +66,9 @@ export default function Command() {
 
       // Generate URLs (only if organization is configured)
       const projectFromWorkItem = workItem.fields["System.TeamProject"];
-      const projectToUse = projectFromWorkItem || preferences.azureProject || "Unknown";
-      
+      const projectToUse =
+        projectFromWorkItem || preferences.azureProject || "Unknown";
+
       const organizationUrl = preferences.azureOrganization;
       if (organizationUrl) {
         const workItemUrl = `${organizationUrl}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItemId}`;
@@ -76,12 +77,24 @@ export default function Command() {
 
       // Generate suggested branch name
       const title = workItem.fields["System.Title"];
-      const branchName = convertToBranchName(workItemId, title, preferences.branchPrefix);
+      const branchName = convertToBranchName(
+        workItemId,
+        title,
+        preferences.branchPrefix,
+      );
       setSuggestedBranchName(branchName);
 
-      await showToast(Toast.Style.Success, "Loaded!", `Work item ${workItemId} details fetched`);
+      await showToast(
+        Toast.Style.Success,
+        "Loaded!",
+        `Work item ${workItemId} details fetched`,
+      );
     } catch (error) {
-      await showToast(Toast.Style.Failure, "Error", "Failed to fetch work item details");
+      await showToast(
+        Toast.Style.Failure,
+        "Error",
+        "Failed to fetch work item details",
+      );
       console.error(error);
     } finally {
       setIsLoading(false);

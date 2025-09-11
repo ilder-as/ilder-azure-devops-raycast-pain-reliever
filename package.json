@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "azure-devops-branch-helper",
-  "title": "Azure DevOps Helper",
+  "title": "Azure Devops Helper",
   "description": "Fetch Azure DevOps work items and generate standardized Git branch names",
   "icon": "devops-icon.png",
   "author": "tor_gjosaeter",

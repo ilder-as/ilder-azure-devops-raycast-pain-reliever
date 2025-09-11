@@ -45,7 +45,9 @@ export default function Command() {
   async function getCurrentUser() {
     try {
       const azCommand = "/opt/homebrew/bin/az";
-      const { stdout } = await execAsync(`${azCommand} account show --query user.name -o tsv`);
+      const { stdout } = await execAsync(
+        `${azCommand} account show --query user.name -o tsv`,
+      );
       return stdout.trim();
     } catch (error) {
       console.error("Failed to get current user:", error);
@@ -55,7 +57,11 @@ export default function Command() {
 
   async function activateAndBranch(workItemId: string) {
     if (!workItemId) {
-      await showToast(Toast.Style.Failure, "Error", "Please enter a work item ID");
+      await showToast(
+        Toast.Style.Failure,
+        "Error",
+        "Please enter a work item ID",
+      );
       return;
     }
 
@@ -73,11 +79,11 @@ export default function Command() {
 
       // Step 1: Fetch work item details (without project first to get the project from work item)
       let fetchCommand = `${azCommand} boards work-item show --id ${workItemId} --output json`;
-      
+
       if (preferences.azureOrganization) {
         fetchCommand += ` --organization "${preferences.azureOrganization}"`;
       }
-      
+
       // Try with configured project first, if available
       if (preferences.azureProject) {
         fetchCommand += ` --project "${preferences.azureProject}"`;
@@ -92,18 +98,24 @@ export default function Command() {
       const projectToUse = projectFromWorkItem || preferences.azureProject;
 
       if (!projectToUse) {
-        await showToast(Toast.Style.Failure, "Configuration Error", "Could not determine project - please configure Azure DevOps Project in settings");
+        await showToast(
+          Toast.Style.Failure,
+          "Configuration Error",
+          "Could not determine project - please configure Azure DevOps Project in settings",
+        );
         return;
       }
 
       // Try to determine repository - often the repository name matches the project name
       // or we can try to list repositories in the project to find the default one
       let repositoryToUse = preferences.azureRepository;
-      
+
       if (!repositoryToUse) {
         // Try using project name as repository name (common pattern)
         repositoryToUse = projectToUse;
-        console.log(`No repository configured, trying project name: ${repositoryToUse}`);
+        console.log(
+          `No repository configured, trying project name: ${repositoryToUse}`,
+        );
       }
 
       // Step 2: Update work item to Active and assign to self
@@ -114,7 +126,7 @@ export default function Command() {
       if (preferences.azureOrganization) {
         updateCommand += ` --organization "${preferences.azureOrganization}"`;
       }
-      
+
       // Note: work-item update doesn't support --project parameter
       // It uses the organization context or default configuration
 
@@ -122,33 +134,39 @@ export default function Command() {
 
       // Step 3: Generate branch name
       const title = workItem.fields["System.Title"];
-      const branchName = convertToBranchName(workItemId, title, preferences.branchPrefix);
+      const branchName = convertToBranchName(
+        workItemId,
+        title,
+        preferences.branchPrefix,
+      );
 
       // Step 4: Get the object ID of the source branch
       let getObjectIdCommand = `${azCommand} repos ref list --filter "heads/${preferences.sourceBranch}" --query "[0].objectId" -o tsv`;
       getObjectIdCommand += ` --repository "${repositoryToUse}"`;
-      
+
       if (preferences.azureOrganization) {
         getObjectIdCommand += ` --organization "${preferences.azureOrganization}"`;
       }
-      
+
       getObjectIdCommand += ` --project "${projectToUse}"`;
 
       const { stdout: objectId } = await execAsync(getObjectIdCommand);
       const trimmedObjectId = objectId.trim();
 
       if (!trimmedObjectId) {
-        throw new Error(`Source branch '${preferences.sourceBranch}' not found`);
+        throw new Error(
+          `Source branch '${preferences.sourceBranch}' not found`,
+        );
       }
 
       // Step 5: Create branch in Azure DevOps
       let createBranchCommand = `${azCommand} repos ref create --name "refs/heads/${branchName}" --object-id "${trimmedObjectId}"`;
       createBranchCommand += ` --repository "${repositoryToUse}"`;
-      
+
       if (preferences.azureOrganization) {
         createBranchCommand += ` --organization "${preferences.azureOrganization}"`;
       }
-      
+
       createBranchCommand += ` --project "${projectToUse}"`;
 
       await execAsync(createBranchCommand);
@@ -158,7 +176,7 @@ export default function Command() {
       if (organizationUrl) {
         const branchUrl = `${organizationUrl}/${encodeURIComponent(projectToUse)}/_git/${encodeURIComponent(repositoryToUse)}?version=GB${encodeURIComponent(branchName)}`;
         const workItemUrl = `${organizationUrl}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItemId}`;
-        
+
         setBranchUrl(branchUrl);
         setWorkItemUrl(workItemUrl);
       }
@@ -166,18 +184,20 @@ export default function Command() {
       await showToast(
         Toast.Style.Success,
         "Success!",
-        `Work item ${workItemId} activated, assigned, and branch '${branchName}' created in Azure DevOps`
+        `Work item ${workItemId} activated, assigned, and branch '${branchName}' created in Azure DevOps`,
       );
-
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = "Failed to activate work item and create branch";
-      
-      if (error.message?.includes("az")) {
-        errorMessage = "Azure CLI not found or not configured properly";
-      } else if (error.message?.includes("already exists")) {
-        errorMessage = "Branch already exists in Azure DevOps";
-      } else if (error.message?.includes("repos")) {
-        errorMessage = "Failed to create branch in Azure DevOps - check repository access";
+
+      if (error instanceof Error) {
+        if (error.message.includes("az")) {
+          errorMessage = "Azure CLI not found or not configured properly";
+        } else if (error.message.includes("already exists")) {
+          errorMessage = "Branch already exists in Azure DevOps";
+        } else if (error.message.includes("repos")) {
+          errorMessage =
+            "Failed to create branch in Azure DevOps - check repository access";
+        }
       }
 
       await showToast(Toast.Style.Failure, "Error", errorMessage);
@@ -249,10 +269,7 @@ export default function Command() {
       )}
 
       {currentUser && (
-        <Form.Description
-          title="🎯 Will Assign To"
-          text={currentUser}
-        />
+        <Form.Description title="🎯 Will Assign To" text={currentUser} />
       )}
 
       {workItemUrl && (
