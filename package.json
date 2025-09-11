@@ -20,6 +20,13 @@
       "description": "Set work item to active, assign to self, and create branch",
       "mode": "view",
       "entrypoint": "src/activate-and-branch.tsx"
+    },
+    {
+      "name": "check-workitem",
+      "title": "Check Work Item",
+      "description": "View work item details and get URLs without making changes",
+      "mode": "view",
+      "entrypoint": "src/check-workitem.tsx"
     }
   ],
   "preferences": [

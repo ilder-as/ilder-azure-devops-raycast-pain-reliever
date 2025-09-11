@@ -40,6 +40,7 @@ export default function Command() {
   const [workItemDetails, setWorkItemDetails] = useState<WorkItem | null>(null);
   const [currentUser, setCurrentUser] = useState<string>("");
   const [branchUrl, setBranchUrl] = useState<string>("");
+  const [workItemUrl, setWorkItemUrl] = useState<string>("");
 
   async function getCurrentUser() {
     try {
@@ -152,32 +153,20 @@ export default function Command() {
 
       await execAsync(createBranchCommand);
 
-      // Step 6: Link the branch to the work item
-      const organizationUrl = preferences.azureOrganization || "https://dev.azure.com/your-org";
-      const branchUrl = `${organizationUrl}/${encodeURIComponent(projectToUse)}/_git/${encodeURIComponent(repositoryToUse)}?version=GB${encodeURIComponent(branchName)}`;
-      
-      let linkCommand = `${azCommand} boards work-item relation add --id ${workItemId}`;
-      linkCommand += ` --relation-type "ArtifactLink"`;
-      linkCommand += ` --target-url "${branchUrl}"`;
-      
-      if (preferences.azureOrganization) {
-        linkCommand += ` --organization "${preferences.azureOrganization}"`;
+      // Generate URLs for easy access (only if organization is configured)
+      const organizationUrl = preferences.azureOrganization;
+      if (organizationUrl) {
+        const branchUrl = `${organizationUrl}/${encodeURIComponent(projectToUse)}/_git/${encodeURIComponent(repositoryToUse)}?version=GB${encodeURIComponent(branchName)}`;
+        const workItemUrl = `${organizationUrl}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItemId}`;
+        
+        setBranchUrl(branchUrl);
+        setWorkItemUrl(workItemUrl);
       }
-
-      try {
-        await execAsync(linkCommand);
-        console.log("Branch linked to work item successfully");
-      } catch (linkError) {
-        console.warn("Failed to link branch to work item:", linkError);
-        // Don't fail the whole operation if linking fails
-      }
-
-      setBranchUrl(branchUrl);
 
       await showToast(
         Toast.Style.Success,
         "Success!",
-        `Work item ${workItemId} activated, assigned, branch created and linked in Azure DevOps`
+        `Work item ${workItemId} activated, assigned, and branch '${branchName}' created in Azure DevOps`
       );
 
     } catch (error: any) {
@@ -208,15 +197,22 @@ export default function Command() {
             onAction={() => activateAndBranch(workItemId)}
             icon="🚀"
           />
+          {workItemUrl && (
+            <Action.OpenInBrowser
+              title="Open Work Item (⌘W)"
+              url={workItemUrl}
+              shortcut={{ modifiers: ["cmd"], key: "w" }}
+            />
+          )}
           {branchUrl && (
             <>
               <Action.OpenInBrowser
-                title="Open Branch in Azure DevOps"
+                title="Open Branch (⌘O)"
                 url={branchUrl}
                 shortcut={{ modifiers: ["cmd"], key: "o" }}
               />
               <Action.CopyToClipboard
-                title="Copy Branch URL"
+                title="Copy Branch URL (⌘L)"
                 content={branchUrl}
                 shortcut={{ modifiers: ["cmd"], key: "l" }}
               />
@@ -259,9 +255,16 @@ export default function Command() {
         />
       )}
 
+      {workItemUrl && (
+        <Form.Description
+          title="📋 Work Item URL (⌘W to open)"
+          text={workItemUrl}
+        />
+      )}
+
       {branchUrl && (
         <Form.Description
-          title="🔗 Branch URL"
+          title="🔗 Branch URL (⌘O to open, ⌘L to copy)"
           text={branchUrl}
         />
       )}
