@@ -302,10 +302,11 @@ export default function BuildLogsView({
         return;
       }
 
-      const sourceBranch = buildDetails.sourceBranch.replace("refs/heads/", "");
+      // Get the actual source branch
+      const actualSourceBranch = await getActualSourceBranch(buildDetails);
 
       // Search for active PRs from this source branch
-      const prListCommand = `${azCommand} repos pr list --source-branch "${sourceBranch}" --status active --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}" --repository "${repositoryName}"`;
+      const prListCommand = `${azCommand} repos pr list --source-branch "${actualSourceBranch}" --status active --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}" --repository "${repositoryName}"`;
 
       const { stdout: prResult } = await execAsync(prListCommand);
       const prs = JSON.parse(prResult);
@@ -322,6 +323,83 @@ export default function BuildLogsView({
       setExistingPR(null);
     } finally {
       setIsCheckingPR(false);
+    }
+  }
+
+  // Function to get the actual source branch from build details
+  async function getActualSourceBranch(buildDetails: BuildDetails): Promise<string> {
+    let sourceBranch = buildDetails.sourceBranch.replace("refs/heads/", "");
+    
+    // Check if this is a PR merge build (refs/pull/XX/merge)
+    const prMergeMatch = buildDetails.sourceBranch.match(/refs\/pull\/(\d+)\/merge/);
+    if (prMergeMatch) {
+      const prId = prMergeMatch[1];
+      try {
+        const preferences = getPreferenceValues<Preferences>();
+        const azCommand = "/opt/homebrew/bin/az";
+        
+        if (preferences.azureOrganization) {
+          // Fetch the PR details to get the actual source branch
+          const prCommand = `${azCommand} repos pr show --id ${prId} --output json --organization "${preferences.azureOrganization}"`;
+          const { stdout: prResult } = await execAsync(prCommand);
+          const prData = JSON.parse(prResult);
+          
+          if (prData.sourceRefName) {
+            sourceBranch = prData.sourceRefName.replace("refs/heads/", "");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch PR details for source branch:", error);
+        // Fall back to triggerInfo if available
+        if (buildDetails.triggerInfo?.["ci.sourceBranch"]) {
+          sourceBranch = buildDetails.triggerInfo["ci.sourceBranch"].replace("refs/heads/", "");
+        }
+      }
+    } else if (buildDetails.triggerInfo?.["ci.sourceBranch"]) {
+      // Use triggerInfo if available and not a PR merge
+      sourceBranch = buildDetails.triggerInfo["ci.sourceBranch"].replace("refs/heads/", "");
+    }
+    
+    return sourceBranch;
+  }
+
+  // Function to extract work item ID from branch name
+  function extractWorkItemIdFromBranch(branchName: string): string | null {
+    const preferences = getPreferenceValues<Preferences>();
+    const prefix = preferences.branchPrefix || "";
+    
+    // Remove the prefix if present and not empty
+    const withoutPrefix = prefix && branchName.startsWith(prefix) 
+      ? branchName.substring(prefix.length) 
+      : branchName;
+    
+    // Extract the first number from the branch name (work item ID)
+    const match = withoutPrefix.match(/^(\d+)/);
+    return match ? match[1] : null;
+  }
+
+  // Function to fetch work item details
+  async function fetchWorkItemDetails(workItemId: string): Promise<{ title: string; type: string } | null> {
+    try {
+      const preferences = getPreferenceValues<Preferences>();
+      const azCommand = "/opt/homebrew/bin/az";
+
+      let fetchCommand = `${azCommand} boards work-item show --id ${workItemId} --output json`;
+
+      if (preferences.azureOrganization) {
+        fetchCommand += ` --organization "${preferences.azureOrganization}"`;
+      }
+
+      const { stdout } = await execAsync(fetchCommand);
+      const workItem = JSON.parse(stdout);
+
+      return {
+        title: workItem.fields?.["System.Title"] || "Unknown Title",
+        type: workItem.fields?.["System.WorkItemType"] || "Unknown Type",
+      };
+    } catch (error) {
+      console.error("Failed to fetch work item details:", error);
+      return null;
     }
   }
 
@@ -359,29 +437,39 @@ export default function BuildLogsView({
         );
       }
 
-      const sourceBranch = buildDetails.sourceBranch.replace("refs/heads/", "");
+      // Get the actual source branch - handles PR merge refs by fetching PR details
+      const actualSourceBranch = await getActualSourceBranch(buildDetails);
       const targetBranch = preferences.sourceBranch || "main";
 
       // Check if source branch is different from target branch
-      if (sourceBranch === targetBranch) {
+      if (actualSourceBranch === targetBranch) {
         await showToast(
           Toast.Style.Failure,
           "Cannot create PR",
-          `Source branch (${sourceBranch}) cannot be the same as target branch (${targetBranch})`,
+          `Source branch (${actualSourceBranch}) cannot be the same as target branch (${targetBranch})`,
         );
         return;
       }
 
-      // Get commit message for PR title and description
-      const commitMessage =
-        buildDetails.triggerInfo?.["ci.message"] || "Automated changes";
+      // Extract work item ID from branch name and fetch details
+      const workItemId = extractWorkItemIdFromBranch(actualSourceBranch);
+      let prTitle = buildDetails.triggerInfo?.["ci.message"] || "Automated changes";
+      let workItemDetails = null;
+
+      if (workItemId) {
+        workItemDetails = await fetchWorkItemDetails(workItemId);
+        if (workItemDetails) {
+          prTitle = `${workItemId}: ${workItemDetails.title}`;
+        }
+      }
+
       const shortCommit = buildDetails.sourceVersion.substring(0, 8);
 
       // Create pull request using Azure CLI
       const createPRCommand = `${azCommand} repos pr create \
-        --source-branch "${sourceBranch}" \
+        --source-branch "${actualSourceBranch}" \
         --target-branch "${targetBranch}" \
-        --title "${commitMessage}" \
+        --title "${prTitle}" \
         --description "PR created from successful build #${buildDetails.buildNumber}
 
 **Build Details:**
@@ -390,6 +478,7 @@ export default function BuildLogsView({
 - Status: ${buildDetails.status} (${buildDetails.result})
 - Repository: ${buildDetails.repository.name}
 - Requested by: ${buildDetails.requestedFor.displayName}
+${workItemDetails ? `- Work Item: #${workItemId} (${workItemDetails.type})` : ""}
 
 This PR was created automatically after a successful build." \
         --output json \
@@ -400,10 +489,26 @@ This PR was created automatically after a successful build." \
       const { stdout: prResult } = await execAsync(createPRCommand);
       const prData = JSON.parse(prResult);
 
+      // Link work item to PR if work item ID was found
+      if (workItemId) {
+        try {
+          const linkWorkItemCommand = `${azCommand} repos pr work-item add --id ${prData.pullRequestId} --work-items ${workItemId} --output json --organization "${preferences.azureOrganization}"`;
+          await execAsync(linkWorkItemCommand);
+        } catch (linkError) {
+          console.error("Failed to link work item to PR:", linkError);
+          // Don't fail the entire operation if linking fails
+          await showToast(
+            Toast.Style.Failure,
+            "Warning",
+            "PR created but failed to link work item",
+          );
+        }
+      }
+
       await showToast(
         Toast.Style.Success,
         "Pull Request Created",
-        `PR #${prData.pullRequestId}: ${commitMessage}`,
+        `PR #${prData.pullRequestId}: ${prTitle}`,
       );
 
       return prData;
@@ -515,7 +620,7 @@ This PR was created automatically after a successful build." \
                       <Action.OpenInBrowser
                         title="Open Pull Request"
                         url={getPRUrl(existingPR)}
-                        icon={Icon.GitBranch}
+                        icon={Icon.Code}
                         shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
                       />
                     </>
@@ -525,7 +630,7 @@ This PR was created automatically after a successful build." \
                         isCreatingPR ? "Creating Pr…" : "Create Pull Request"
                       }
                       onAction={createPullRequest}
-                      icon={Icon.GitBranch}
+                      icon={Icon.Code}
                       shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
                     />
                   )}
