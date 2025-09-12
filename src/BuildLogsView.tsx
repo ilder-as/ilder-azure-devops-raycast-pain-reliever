@@ -6,6 +6,7 @@ import {
   Toast,
   getPreferenceValues,
   Icon,
+  useNavigation,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { exec } from "child_process";
@@ -88,6 +89,9 @@ export default function BuildLogsView({
   const [isCreatingPR, setIsCreatingPR] = useState(false);
   const [existingPR, setExistingPR] = useState<PullRequest | null>(null);
   const [isCheckingPR, setIsCheckingPR] = useState(false);
+  const [createdPR, setCreatedPR] = useState<{ pullRequestId: number; title: string; project: string } | null>(null);
+  
+  const { push } = useNavigation();
 
   async function fetchBuildDetails() {
     setIsLoading(true);
@@ -511,6 +515,13 @@ This PR was created automatically after a successful build." \
         `PR #${prData.pullRequestId}: ${prTitle}`,
       );
 
+      // Set created PR data for navigation
+      setCreatedPR({
+        pullRequestId: prData.pullRequestId,
+        title: prTitle,
+        project: preferences.azureProject || buildDetails.repository.name || "Unknown",
+      });
+
       return prData;
     } catch (error) {
       const errorMessage =
@@ -571,6 +582,21 @@ This PR was created automatically after a successful build." \
       if (interval) clearInterval(interval);
     };
   }, [buildId]);
+
+  // Navigate to PR details view after successful PR creation
+  useEffect(() => {
+    if (createdPR) {
+      push(
+        <PullRequestDetailsView
+          pullRequestId={createdPR.pullRequestId.toString()}
+          initialTitle={createdPR.title}
+          project={createdPR.project}
+        />
+      );
+      // Clear the created PR state to prevent repeated navigation
+      setCreatedPR(null);
+    }
+  }, [createdPR, push]);
 
   const buildUrl = getBuildUrl();
 
