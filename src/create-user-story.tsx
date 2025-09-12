@@ -40,7 +40,7 @@ export default function Command() {
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedFeature, setSelectedFeature] = useState("");
   const [selectedAssignee, setSelectedAssignee] = useState("");
-  
+
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [features, setFeatures] = useState<Feature[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -92,34 +92,49 @@ export default function Command() {
       // Process team members - extract unique assignees
       const workItems = JSON.parse(teamResult.stdout);
       const uniqueAssignees = new Map<string, TeamMember>();
-      
-      workItems.forEach((item: { fields?: { "System.AssignedTo"?: { displayName: string; uniqueName: string; id?: string } } }) => {
-        const assignedTo = item.fields?.["System.AssignedTo"];
-        if (assignedTo && assignedTo.uniqueName) {
-          uniqueAssignees.set(assignedTo.uniqueName, {
-            displayName: assignedTo.displayName,
-            uniqueName: assignedTo.uniqueName,
-            id: assignedTo.id || assignedTo.uniqueName,
-          });
-        }
-      });
+
+      workItems.forEach(
+        (item: {
+          fields?: {
+            "System.AssignedTo"?: {
+              displayName: string;
+              uniqueName: string;
+              id?: string;
+            };
+          };
+        }) => {
+          const assignedTo = item.fields?.["System.AssignedTo"];
+          if (assignedTo && assignedTo.uniqueName) {
+            uniqueAssignees.set(assignedTo.uniqueName, {
+              displayName: assignedTo.displayName,
+              uniqueName: assignedTo.uniqueName,
+              id: assignedTo.id || assignedTo.uniqueName,
+            });
+          }
+        },
+      );
 
       setTeamMembers(Array.from(uniqueAssignees.values()));
 
       // Process features
       const featureWorkItems = JSON.parse(featuresResult.stdout);
       const processedFeatures: Feature[] = [];
-      
+
       if (Array.isArray(featureWorkItems)) {
-        featureWorkItems.forEach((item: { id: number; fields?: { "System.Title"?: string; "System.State"?: string } }) => {
-          processedFeatures.push({
-            id: item.id,
-            title: item.fields?.["System.Title"] || "Unknown Feature",
-            state: item.fields?.["System.State"] || "Unknown",
-          });
-        });
+        featureWorkItems.forEach(
+          (item: {
+            id: number;
+            fields?: { "System.Title"?: string; "System.State"?: string };
+          }) => {
+            processedFeatures.push({
+              id: item.id,
+              title: item.fields?.["System.Title"] || "Unknown Feature",
+              state: item.fields?.["System.State"] || "Unknown",
+            });
+          },
+        );
       }
-      
+
       setFeatures(processedFeatures);
     } catch (error) {
       console.error("Failed to load form data:", error);
@@ -133,11 +148,7 @@ export default function Command() {
 
   async function createUserStory() {
     if (!title.trim()) {
-      await showToast(
-        Toast.Style.Failure,
-        "Error",
-        "Title is required",
-      );
+      await showToast(Toast.Style.Failure, "Error", "Title is required");
       return;
     }
 
@@ -199,10 +210,10 @@ export default function Command() {
         }
       }
 
+      const parentInfo = selectedFeature
+        ? features.find((f) => f.id.toString() === selectedFeature)?.title
+        : null;
 
-      const parentInfo = selectedFeature ? 
-        features.find(f => f.id.toString() === selectedFeature)?.title : null;
-      
       await showToast(
         Toast.Style.Success,
         "User Story Created!",
@@ -267,7 +278,9 @@ export default function Command() {
         placeholder="Enter user story title..."
         value={title}
         onChange={setTitle}
-        error={title.trim() === "" && isLoading ? "Title is required" : undefined}
+        error={
+          title.trim() === "" && isLoading ? "Title is required" : undefined
+        }
       />
 
       <Form.TextArea

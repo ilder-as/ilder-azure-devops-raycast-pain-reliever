@@ -283,7 +283,9 @@ export default function Command() {
     }
   }
 
-  function formatCompactDateTime(dateString?: string): { date: string; time: string } | null {
+  function formatCompactDateTime(
+    dateString?: string,
+  ): { date: string; time: string } | null {
     if (!dateString) return null;
 
     const date = new Date(dateString);
@@ -297,7 +299,7 @@ export default function Command() {
 
     return {
       date: `${year}-${month}-${day}`,
-      time: `${hours}:${minutes}`
+      time: `${hours}:${minutes}`,
     };
   }
 

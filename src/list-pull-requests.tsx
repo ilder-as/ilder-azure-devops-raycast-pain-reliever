@@ -132,7 +132,8 @@ export default function Command() {
       // Sort by creation date (newest first)
       const sortedPRs = allPRs.sort(
         (a, b) =>
-          new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime(),
+          new Date(b.creationDate).getTime() -
+          new Date(a.creationDate).getTime(),
       );
 
       setPullRequests(sortedPRs);
@@ -189,7 +190,11 @@ export default function Command() {
     }
   }
 
-  function getPRStatusColor(status: string, isDraft: boolean, mergeStatus: string): Color {
+  function getPRStatusColor(
+    status: string,
+    isDraft: boolean,
+    mergeStatus: string,
+  ): Color {
     if (isDraft) return Color.SecondaryText;
 
     const lowerStatus = status.toLowerCase();
@@ -227,19 +232,21 @@ export default function Command() {
 
   function getReviewStatus(pr: PullRequest, currentUserEmail: string): string {
     const isAuthor = pr.createdBy.uniqueName === currentUserEmail;
-    
+
     if (isAuthor) {
-      const reviewerVotes = pr.reviewers.filter(r => r.vote !== 0);
-      const approvals = reviewerVotes.filter(r => r.vote > 0).length;
-      const rejections = reviewerVotes.filter(r => r.vote < 0).length;
-      
+      const reviewerVotes = pr.reviewers.filter((r) => r.vote !== 0);
+      const approvals = reviewerVotes.filter((r) => r.vote > 0).length;
+      const rejections = reviewerVotes.filter((r) => r.vote < 0).length;
+
       if (rejections > 0) return "Changes requested";
       if (approvals > 0) return `${approvals} approvals`;
       return "Awaiting review";
     } else {
-      const myReview = pr.reviewers.find(r => r.uniqueName === currentUserEmail);
+      const myReview = pr.reviewers.find(
+        (r) => r.uniqueName === currentUserEmail,
+      );
       if (!myReview) return "Not a reviewer";
-      
+
       if (myReview.vote > 0) return "Approved";
       if (myReview.vote < 0) return "Rejected";
       return "Review pending";
@@ -248,8 +255,10 @@ export default function Command() {
 
   function getUserRole(pr: PullRequest, currentUserEmail: string): string {
     const isAuthor = pr.createdBy.uniqueName === currentUserEmail;
-    const isReviewer = pr.reviewers.some(r => r.uniqueName === currentUserEmail);
-    
+    const isReviewer = pr.reviewers.some(
+      (r) => r.uniqueName === currentUserEmail,
+    );
+
     if (isAuthor && isReviewer) return "Author & Reviewer";
     if (isAuthor) return "Author";
     if (isReviewer) return "Reviewer";
@@ -279,7 +288,11 @@ export default function Command() {
               key={pr.pullRequestId}
               icon={{
                 source: getPRStatusIcon(pr.status, pr.isDraft),
-                tintColor: getPRStatusColor(pr.status, pr.isDraft, pr.mergeStatus),
+                tintColor: getPRStatusColor(
+                  pr.status,
+                  pr.isDraft,
+                  pr.mergeStatus,
+                ),
               }}
               title={`#${pr.pullRequestId}: ${pr.title}`}
               subtitle={`${sourceBranch} → ${targetBranch} • ${pr.repository.name}`}
@@ -306,19 +319,19 @@ export default function Command() {
                   <ActionPanel.Section title="Pull Request Actions">
                     {prUrl && (
                       <Action.OpenInBrowser
-                        title="Open in Azure DevOps"
+                        title="Open in Azure Devops"
                         url={prUrl}
                         icon={Icon.Globe}
                         shortcut={{ modifiers: ["cmd"], key: "o" }}
                       />
                     )}
                     <Action.CopyToClipboard
-                      title="Copy PR ID"
+                      title="Copy Pr ID"
                       content={pr.pullRequestId.toString()}
                       icon={Icon.Clipboard}
                     />
                     <Action.CopyToClipboard
-                      title="Copy PR Title"
+                      title="Copy Pr Title"
                       content={pr.title}
                       icon={Icon.Text}
                     />
@@ -329,7 +342,7 @@ export default function Command() {
                       shortcut={{ modifiers: ["cmd"], key: "b" }}
                     />
                     <Action.CopyToClipboard
-                      title="Copy PR URL"
+                      title="Copy Pr URL"
                       content={prUrl}
                       icon={Icon.Link}
                       shortcut={{ modifiers: ["cmd"], key: "u" }}

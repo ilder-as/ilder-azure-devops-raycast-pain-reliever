@@ -173,12 +173,17 @@ export default function ActivateAndBranchForm({
       try {
         const { stdout: existingBranch } = await execAsync(checkBranchCommand);
         if (existingBranch.trim()) {
-          throw new Error(`Branch '${branchName}' already exists in Azure DevOps`);
+          throw new Error(
+            `Branch '${branchName}' already exists in Azure DevOps`,
+          );
         }
       } catch (checkError) {
         // If the check command fails, it might be because the branch doesn't exist, which is what we want
         // Only throw if it's a different kind of error
-        if (checkError instanceof Error && checkError.message.includes("already exists")) {
+        if (
+          checkError instanceof Error &&
+          checkError.message.includes("already exists")
+        ) {
           throw checkError;
         }
       }
@@ -223,7 +228,10 @@ export default function ActivateAndBranchForm({
           errorMessage = "Azure CLI not found or not configured properly";
         } else if (error.message.includes("already exists")) {
           errorMessage = "Branch already exists in Azure DevOps";
-        } else if (error.message.includes("ERROR: None") || error.message.includes("repos ref create")) {
+        } else if (
+          error.message.includes("ERROR: None") ||
+          error.message.includes("repos ref create")
+        ) {
           errorMessage = "Branch already exists or repository access denied";
         } else if (error.message.includes("repos")) {
           errorMessage =
