@@ -71,6 +71,7 @@ export default function BuildLogsView({
   const [buildDetails, setBuildDetails] = useState<BuildDetails | null>(null);
   const [logs, setLogs] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingPR, setIsCreatingPR] = useState(false);
 
   async function fetchBuildDetails() {
     setIsLoading(true);
@@ -251,6 +252,99 @@ export default function BuildLogsView({
     return `${preferences.azureOrganization}/${encodeURIComponent(preferences.azureProject)}/_build/results?buildId=${buildId}`;
   }
 
+  async function createPullRequest() {
+    if (
+      !buildDetails ||
+      buildDetails.status !== "completed" ||
+      buildDetails.result !== "succeeded"
+    ) {
+      await showToast(
+        Toast.Style.Failure,
+        "Cannot create PR",
+        "Build must be completed and successful",
+      );
+      return;
+    }
+
+    setIsCreatingPR(true);
+
+    try {
+      const preferences = getPreferenceValues<Preferences>();
+      const azCommand = "/opt/homebrew/bin/az";
+
+      if (!preferences.azureOrganization || !preferences.azureProject) {
+        throw new Error("Azure DevOps organization and project are required");
+      }
+
+      // Use repository from build details if not configured in preferences
+      const repositoryName = preferences.azureRepository || buildDetails.repository.name;
+      
+      if (!repositoryName) {
+        throw new Error(
+          "Azure DevOps repository could not be determined. Please configure it in preferences.",
+        );
+      }
+
+      const sourceBranch = buildDetails.sourceBranch.replace("refs/heads/", "");
+      const targetBranch = preferences.sourceBranch || "main";
+
+      // Check if source branch is different from target branch
+      if (sourceBranch === targetBranch) {
+        await showToast(
+          Toast.Style.Failure,
+          "Cannot create PR",
+          `Source branch (${sourceBranch}) cannot be the same as target branch (${targetBranch})`,
+        );
+        return;
+      }
+
+      // Get commit message for PR title and description
+      const commitMessage =
+        buildDetails.triggerInfo?.["ci.message"] || "Automated changes";
+      const shortCommit = buildDetails.sourceVersion.substring(0, 8);
+
+      // Create pull request using Azure CLI
+      const createPRCommand = `${azCommand} repos pr create \
+        --source-branch "${sourceBranch}" \
+        --target-branch "${targetBranch}" \
+        --title "${commitMessage}" \
+        --description "PR created from successful build #${buildDetails.buildNumber}
+
+**Build Details:**
+- Build ID: ${buildDetails.id}
+- Commit: ${shortCommit}
+- Status: ${buildDetails.status} (${buildDetails.result})
+- Repository: ${buildDetails.repository.name}
+- Requested by: ${buildDetails.requestedFor.displayName}
+
+This PR was created automatically after a successful build." \
+        --output json \
+        --organization "${preferences.azureOrganization}" \
+        --project "${preferences.azureProject}" \
+        --repository "${repositoryName}"`;
+
+      const { stdout: prResult } = await execAsync(createPRCommand);
+      const prData = JSON.parse(prResult);
+
+      await showToast(
+        Toast.Style.Success,
+        "Pull Request Created",
+        `PR #${prData.pullRequestId}: ${commitMessage}`,
+      );
+
+      return prData;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to create pull request";
+      await showToast(Toast.Style.Failure, "Error Creating PR", errorMessage);
+      console.error("Failed to create PR:", error);
+    } finally {
+      setIsCreatingPR(false);
+    }
+  }
+
   // Auto-refresh every 10 seconds for active builds
   useEffect(() => {
     fetchBuildDetails();
@@ -298,6 +392,16 @@ export default function BuildLogsView({
       actions={
         <ActionPanel>
           <ActionPanel.Section title="Build Actions">
+            {buildDetails &&
+              buildDetails.status === "completed" &&
+              buildDetails.result === "succeeded" && (
+                <Action
+                  title={isCreatingPR ? "Creating Pr…" : "Create Pull Request"}
+                  onAction={createPullRequest}
+                  icon={Icon.GitBranch}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                />
+              )}
             {buildUrl && (
               <Action.OpenInBrowser
                 title="Open Build in Azure Devops"
