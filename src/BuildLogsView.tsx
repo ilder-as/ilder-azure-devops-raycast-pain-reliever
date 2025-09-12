@@ -47,6 +47,11 @@ interface BuildDetails {
     name: string;
   };
   logs?: BuildLog[];
+  triggerInfo?: {
+    "ci.message"?: string;
+    "ci.sourceBranch"?: string;
+    "ci.sourceSha"?: string;
+  };
 }
 
 interface BuildLog {
@@ -133,12 +138,22 @@ export default function BuildLogsView({
       buildDetails.finishTime,
     );
 
-    let markdown = `# ${statusEmoji} ${definitionName} #${buildNumber}\n\n`;
+    // Get run description from trigger info
+    const runDescription =
+      buildDetails.triggerInfo?.["ci.message"] || "Manual run";
+    const shortCommit =
+      buildDetails.sourceVersion?.substring(0, 8) || "unknown";
+
+    let markdown = `# ${statusEmoji} ${definitionName}\n\n`;
+
+    // Show the detailed run description prominently
+    markdown += `**${runDescription}**\n\n`;
 
     // Build status and metadata
     markdown += `**Status:** ${buildDetails.status}${buildDetails.result ? ` (${buildDetails.result})` : ""} • `;
     markdown += `**Duration:** ${duration} • `;
     markdown += `**Branch:** ${buildDetails.sourceBranch.replace("refs/heads/", "")} • `;
+    markdown += `**Commit:** ${shortCommit} • `;
     markdown += `**Repository:** ${buildDetails.repository.name} • `;
     markdown += `**Requested by:** ${buildDetails.requestedFor.displayName}\n\n`;
 
@@ -210,8 +225,8 @@ export default function BuildLogsView({
       return "Future build";
     }
 
-    // If duration is more than 24 hours, something is likely wrong with the data
-    if (diffMs > 24 * 60 * 60 * 1000) {
+    // If duration is more than 3 hours, something is likely wrong with the data
+    if (diffMs > 3 * 60 * 60 * 1000) {
       return "Check build times";
     }
 

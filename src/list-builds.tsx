@@ -47,6 +47,11 @@ interface Build {
   };
   reason: string;
   tags?: string[];
+  triggerInfo?: {
+    "ci.message"?: string;
+    "ci.sourceBranch"?: string;
+    "ci.sourceSha"?: string;
+  };
 }
 
 const COMPLETED_BUILDS_PER_PAGE = 5;
@@ -223,8 +228,8 @@ export default function Command() {
       return "Future build";
     }
 
-    // If duration is more than 24 hours, something is likely wrong with the data
-    if (diffMs > 24 * 60 * 60 * 1000) {
+    // If duration is more than 3 hours, something is likely wrong with the data
+    if (diffMs > 3 * 60 * 60 * 1000) {
       return "Check build times";
     }
 
@@ -259,11 +264,59 @@ export default function Command() {
     return `Recent Completed Builds (${startIndex}-${endIndex} of ${totalCompletedItems})`;
   }
 
+  function formatBuildReason(reason: string): string {
+    switch (reason.toLowerCase()) {
+      case "individualci":
+        return "Individual CI";
+      case "pullrequest":
+        return "Pull Request";
+      case "manual":
+        return "Manual";
+      case "batchedci":
+        return "Batched CI";
+      case "schedule":
+        return "Scheduled";
+      case "triggered":
+        return "Triggered";
+      default:
+        return reason;
+    }
+  }
+
+  function formatCompactDateTime(dateString?: string): { date: string; time: string } | null {
+    if (!dateString) return null;
+
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return {
+      date: `${year}-${month}-${day}`,
+      time: `${hours}:${minutes}`
+    };
+  }
+
   function renderBuildItem(build: Build, keyPrefix: string) {
     const buildUrl = getBuildUrl(build);
     const statusIcon = getBuildStatusIcon(build.status);
     const statusColor = getBuildStatusColor(build.status, build.result);
     const duration = formatDuration(build.startTime, build.finishTime);
+
+    // Get the detailed run information
+    const runDescription = build.triggerInfo?.["ci.message"] || "Manual run";
+    const shortCommit = build.sourceVersion.substring(0, 8);
+    const branch = build.sourceBranch.replace("refs/heads/", "");
+
+    // Format reason for display
+    const reasonText = formatBuildReason(build.reason);
+
+    // Get compact start time
+    const compactStartTime = formatCompactDateTime(build.startTime);
 
     return (
       <List.Item
@@ -272,17 +325,29 @@ export default function Command() {
           source: statusIcon,
           tintColor: statusColor,
         }}
-        title={`${build.definition.name} #${build.buildNumber}`}
-        subtitle={`${build.status}${build.result ? ` (${build.result})` : ""}`}
+        title={`${build.definition.name}`}
+        subtitle={`${runDescription} • ${reasonText} for ${branch} • ${shortCommit}`}
         accessories={[
-          {
-            text: build.sourceBranch.replace("refs/heads/", ""),
-            tooltip: `Branch: ${build.sourceBranch}`,
-          },
           {
             text: build.requestedFor.displayName,
             tooltip: `Requested by: ${build.requestedFor.displayName}`,
           },
+          ...(compactStartTime
+            ? [
+                {
+                  text: compactStartTime.date,
+                  tooltip: build.startTime
+                    ? `Started: ${new Date(build.startTime).toLocaleString()}`
+                    : `Queued: ${new Date(build.queueTime).toLocaleString()}`,
+                },
+                {
+                  text: compactStartTime.time,
+                  tooltip: build.startTime
+                    ? `Started: ${new Date(build.startTime).toLocaleString()}`
+                    : `Queued: ${new Date(build.queueTime).toLocaleString()}`,
+                },
+              ]
+            : []),
           {
             text: duration,
             tooltip: build.finishTime
