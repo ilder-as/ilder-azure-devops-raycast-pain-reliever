@@ -89,8 +89,12 @@ export default function BuildLogsView({
   const [isCreatingPR, setIsCreatingPR] = useState(false);
   const [existingPR, setExistingPR] = useState<PullRequest | null>(null);
   const [isCheckingPR, setIsCheckingPR] = useState(false);
-  const [createdPR, setCreatedPR] = useState<{ pullRequestId: number; title: string; project: string } | null>(null);
-  
+  const [createdPR, setCreatedPR] = useState<{
+    pullRequestId: number;
+    title: string;
+    project: string;
+  } | null>(null);
+
   const { push } = useNavigation();
 
   async function fetchBuildDetails() {
@@ -331,23 +335,27 @@ export default function BuildLogsView({
   }
 
   // Function to get the actual source branch from build details
-  async function getActualSourceBranch(buildDetails: BuildDetails): Promise<string> {
+  async function getActualSourceBranch(
+    buildDetails: BuildDetails,
+  ): Promise<string> {
     let sourceBranch = buildDetails.sourceBranch.replace("refs/heads/", "");
-    
+
     // Check if this is a PR merge build (refs/pull/XX/merge)
-    const prMergeMatch = buildDetails.sourceBranch.match(/refs\/pull\/(\d+)\/merge/);
+    const prMergeMatch = buildDetails.sourceBranch.match(
+      /refs\/pull\/(\d+)\/merge/,
+    );
     if (prMergeMatch) {
       const prId = prMergeMatch[1];
       try {
         const preferences = getPreferenceValues<Preferences>();
         const azCommand = "/opt/homebrew/bin/az";
-        
+
         if (preferences.azureOrganization) {
           // Fetch the PR details to get the actual source branch
           const prCommand = `${azCommand} repos pr show --id ${prId} --output json --organization "${preferences.azureOrganization}"`;
           const { stdout: prResult } = await execAsync(prCommand);
           const prData = JSON.parse(prResult);
-          
+
           if (prData.sourceRefName) {
             sourceBranch = prData.sourceRefName.replace("refs/heads/", "");
           }
@@ -356,14 +364,20 @@ export default function BuildLogsView({
         console.error("Failed to fetch PR details for source branch:", error);
         // Fall back to triggerInfo if available
         if (buildDetails.triggerInfo?.["ci.sourceBranch"]) {
-          sourceBranch = buildDetails.triggerInfo["ci.sourceBranch"].replace("refs/heads/", "");
+          sourceBranch = buildDetails.triggerInfo["ci.sourceBranch"].replace(
+            "refs/heads/",
+            "",
+          );
         }
       }
     } else if (buildDetails.triggerInfo?.["ci.sourceBranch"]) {
       // Use triggerInfo if available and not a PR merge
-      sourceBranch = buildDetails.triggerInfo["ci.sourceBranch"].replace("refs/heads/", "");
+      sourceBranch = buildDetails.triggerInfo["ci.sourceBranch"].replace(
+        "refs/heads/",
+        "",
+      );
     }
-    
+
     return sourceBranch;
   }
 
@@ -371,19 +385,22 @@ export default function BuildLogsView({
   function extractWorkItemIdFromBranch(branchName: string): string | null {
     const preferences = getPreferenceValues<Preferences>();
     const prefix = preferences.branchPrefix || "";
-    
+
     // Remove the prefix if present and not empty
-    const withoutPrefix = prefix && branchName.startsWith(prefix) 
-      ? branchName.substring(prefix.length) 
-      : branchName;
-    
+    const withoutPrefix =
+      prefix && branchName.startsWith(prefix)
+        ? branchName.substring(prefix.length)
+        : branchName;
+
     // Extract the first number from the branch name (work item ID)
     const match = withoutPrefix.match(/^(\d+)/);
     return match ? match[1] : null;
   }
 
   // Function to fetch work item details
-  async function fetchWorkItemDetails(workItemId: string): Promise<{ title: string; type: string } | null> {
+  async function fetchWorkItemDetails(
+    workItemId: string,
+  ): Promise<{ title: string; type: string } | null> {
     try {
       const preferences = getPreferenceValues<Preferences>();
       const azCommand = "/opt/homebrew/bin/az";
@@ -457,7 +474,8 @@ export default function BuildLogsView({
 
       // Extract work item ID from branch name and fetch details
       const workItemId = extractWorkItemIdFromBranch(actualSourceBranch);
-      let prTitle = buildDetails.triggerInfo?.["ci.message"] || "Automated changes";
+      let prTitle =
+        buildDetails.triggerInfo?.["ci.message"] || "Automated changes";
       let workItemDetails = null;
 
       if (workItemId) {
@@ -519,7 +537,8 @@ This PR was created automatically after a successful build." \
       setCreatedPR({
         pullRequestId: prData.pullRequestId,
         title: prTitle,
-        project: preferences.azureProject || buildDetails.repository.name || "Unknown",
+        project:
+          preferences.azureProject || buildDetails.repository.name || "Unknown",
       });
 
       return prData;
@@ -591,7 +610,7 @@ This PR was created automatically after a successful build." \
           pullRequestId={createdPR.pullRequestId.toString()}
           initialTitle={createdPR.title}
           project={createdPR.project}
-        />
+        />,
       );
       // Clear the created PR state to prevent repeated navigation
       setCreatedPR(null);

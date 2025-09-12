@@ -6,11 +6,14 @@ import {
   Toast,
   getPreferenceValues,
   Icon,
+  useNavigation,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { exec } from "child_process";
 import { promisify } from "util";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
+import PullRequestDetailsView from "./PullRequestDetailsView";
+import { activateAndCreatePR } from "./azure-devops-utils";
 
 const execAsync = promisify(exec);
 
@@ -68,6 +71,9 @@ export default function WorkItemDetailsView({
   const [isLoading, setIsLoading] = useState(true);
   const [workItem, setWorkItem] = useState<WorkItemDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isActivatingAndCreatingPR, setIsActivatingAndCreatingPR] = useState(false);
+  
+  const { push } = useNavigation();
 
   async function fetchWorkItemDetails() {
     setIsLoading(true);
@@ -353,6 +359,31 @@ export default function WorkItemDetailsView({
     return markdown;
   }
 
+  async function handleActivateAndCreatePR() {
+    if (!workItem) return;
+
+    setIsActivatingAndCreatingPR(true);
+    
+    try {
+      const result = await activateAndCreatePR(workItem.id.toString());
+      
+      if (result.success && result.prResult) {
+        // Navigate to PR details view
+        push(
+          <PullRequestDetailsView
+            pullRequestId={result.prResult.pullRequestId.toString()}
+            initialTitle={result.prResult.title}
+            project={result.prResult.project}
+          />
+        );
+      }
+    } catch (error) {
+      console.error("Failed to activate and create PR:", error);
+    } finally {
+      setIsActivatingAndCreatingPR(false);
+    }
+  }
+
   useEffect(() => {
     fetchWorkItemDetails();
   }, [workItemId]);
@@ -386,23 +417,31 @@ export default function WorkItemDetailsView({
 
   return (
     <Detail
-      isLoading={isLoading}
+      isLoading={isLoading || isActivatingAndCreatingPR}
       markdown={generateMarkdown()}
       navigationTitle={initialTitle || `Work Item #${workItemId}`}
       actions={
         <ActionPanel>
           <ActionPanel.Section title="Work Item Actions">
             {workItem && (
-              <Action.Push
-                title="Activate & Create Branch"
-                target={
-                  <ActivateAndBranchForm
-                    initialWorkItemId={workItem.id.toString()}
-                  />
-                }
-                icon={Icon.Rocket}
-                shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
-              />
+              <>
+                <Action
+                  title="Activate & Create PR"
+                  onAction={handleActivateAndCreatePR}
+                  icon={Icon.PlusCircle}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                />
+                <Action.Push
+                  title="Activate & Create Branch"
+                  target={
+                    <ActivateAndBranchForm
+                      initialWorkItemId={workItem.id.toString()}
+                    />
+                  }
+                  icon={Icon.Rocket}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+                />
+              </>
             )}
             {workItemUrl && (
               <Action.OpenInBrowser

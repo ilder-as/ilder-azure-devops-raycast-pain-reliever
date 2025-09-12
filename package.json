@@ -62,6 +62,13 @@
       "description": "Create a new user story with title, description, tag, feature, and assignee",
       "mode": "view",
       "entrypoint": "src/create-user-story.tsx"
+    },
+    {
+      "name": "create-work-item",
+      "title": "Create Work Item",
+      "description": "Create a new work item (Feature, User Story, or Bug) with customizable fields",
+      "mode": "view",
+      "entrypoint": "src/create-work-item.tsx"
     }
   ],
   "preferences": [

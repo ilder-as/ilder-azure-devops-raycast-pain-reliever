@@ -40,6 +40,8 @@ declare namespace Preferences {
   export type ListPullRequests = ExtensionPreferences & {}
   /** Preferences accessible in the `create-user-story` command */
   export type CreateUserStory = ExtensionPreferences & {}
+  /** Preferences accessible in the `create-work-item` command */
+  export type CreateWorkItem = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -59,5 +61,7 @@ declare namespace Arguments {
   export type ListPullRequests = {}
   /** Arguments passed to the `create-user-story` command */
   export type CreateUserStory = {}
+  /** Arguments passed to the `create-work-item` command */
+  export type CreateWorkItem = {}
 }
 
