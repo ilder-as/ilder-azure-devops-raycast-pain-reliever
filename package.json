@@ -8,13 +8,6 @@
   "license": "MIT",
   "commands": [
     {
-      "name": "branchname",
-      "title": "Generate Branch Name",
-      "description": "Convert task description to branch name format",
-      "mode": "view",
-      "entrypoint": "src/branchname.tsx"
-    },
-    {
       "name": "activate-and-branch",
       "title": "Activate and Branch Work Item",
       "description": "Set work item to active, assign to self, and create branch",

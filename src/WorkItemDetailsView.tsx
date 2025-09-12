@@ -71,8 +71,15 @@ export default function WorkItemDetailsView({
   const [isLoading, setIsLoading] = useState(true);
   const [workItem, setWorkItem] = useState<WorkItemDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isActivatingAndCreatingPR, setIsActivatingAndCreatingPR] = useState(false);
-  
+  const [isActivatingAndCreatingPR, setIsActivatingAndCreatingPR] =
+    useState(false);
+  const [existingPR, setExistingPR] = useState<{
+    pullRequestId: number;
+    title: string;
+    project: string;
+  } | null>(null);
+  const [isCheckingPR, setIsCheckingPR] = useState(false);
+
   const { push } = useNavigation();
 
   async function fetchWorkItemDetails() {
@@ -104,6 +111,58 @@ export default function WorkItemDetailsView({
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function checkForExistingPR() {
+    if (!workItem) return;
+
+    setIsCheckingPR(true);
+
+    try {
+      const preferences = getPreferenceValues<Preferences>();
+      const azCommand = "/opt/homebrew/bin/az";
+
+      if (!preferences.azureOrganization || !preferences.azureProject) {
+        return;
+      }
+
+      // Generate expected branch name
+      const branchName = convertToBranchName(
+        workItem.id.toString(),
+        workItem.fields["System.Title"],
+        preferences.branchPrefix,
+      );
+
+      const repositoryName =
+        preferences.azureRepository || preferences.azureProject;
+
+      // Search for active PRs from this branch
+      const prListCommand = `${azCommand} repos pr list --source-branch "${branchName}" --status active --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}" --repository "${repositoryName}"`;
+
+      const { stdout: prResult } = await execAsync(prListCommand);
+      const prs = JSON.parse(prResult);
+
+      if (prs && prs.length > 0) {
+        // Found existing PR(s), use the first one
+        const pr = prs[0];
+        setExistingPR({
+          pullRequestId: pr.pullRequestId,
+          title: pr.title,
+          project:
+            pr.repository?.project?.name ||
+            preferences.azureProject ||
+            "Unknown",
+        });
+      } else {
+        setExistingPR(null);
+      }
+    } catch (error) {
+      // Silently fail - PR checking is optional
+      console.log("Could not check for existing PRs:", error);
+      setExistingPR(null);
+    } finally {
+      setIsCheckingPR(false);
     }
   }
 
@@ -363,10 +422,10 @@ export default function WorkItemDetailsView({
     if (!workItem) return;
 
     setIsActivatingAndCreatingPR(true);
-    
+
     try {
       const result = await activateAndCreatePR(workItem.id.toString());
-      
+
       if (result.success && result.prResult) {
         // Navigate to PR details view
         push(
@@ -374,7 +433,7 @@ export default function WorkItemDetailsView({
             pullRequestId={result.prResult.pullRequestId.toString()}
             initialTitle={result.prResult.title}
             project={result.prResult.project}
-          />
+          />,
         );
       }
     } catch (error) {
@@ -384,9 +443,27 @@ export default function WorkItemDetailsView({
     }
   }
 
+  function handleOpenExistingPR() {
+    if (!existingPR) return;
+
+    push(
+      <PullRequestDetailsView
+        pullRequestId={existingPR.pullRequestId.toString()}
+        initialTitle={existingPR.title}
+        project={existingPR.project}
+      />,
+    );
+  }
+
   useEffect(() => {
     fetchWorkItemDetails();
   }, [workItemId]);
+
+  useEffect(() => {
+    if (workItem) {
+      checkForExistingPR();
+    }
+  }, [workItem]);
 
   const workItemUrl = getWorkItemUrl();
   const preferences = getPreferenceValues<Preferences>();
@@ -417,7 +494,7 @@ export default function WorkItemDetailsView({
 
   return (
     <Detail
-      isLoading={isLoading || isActivatingAndCreatingPR}
+      isLoading={isLoading || isActivatingAndCreatingPR || isCheckingPR}
       markdown={generateMarkdown()}
       navigationTitle={initialTitle || `Work Item #${workItemId}`}
       actions={
@@ -425,12 +502,21 @@ export default function WorkItemDetailsView({
           <ActionPanel.Section title="Work Item Actions">
             {workItem && (
               <>
-                <Action
-                  title="Activate & Create PR"
-                  onAction={handleActivateAndCreatePR}
-                  icon={Icon.PlusCircle}
-                  shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
-                />
+                {existingPR ? (
+                  <Action
+                    title="Open Pull Request"
+                    onAction={handleOpenExistingPR}
+                    icon={Icon.Eye}
+                    shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                  />
+                ) : (
+                  <Action
+                    title="Activate & Create Pull Request"
+                    onAction={handleActivateAndCreatePR}
+                    icon={Icon.PlusCircle}
+                    shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                  />
+                )}
                 <Action.Push
                   title="Activate & Create Branch"
                   target={

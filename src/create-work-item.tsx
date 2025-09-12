@@ -53,7 +53,6 @@ export default function Command() {
     { value: "Bug", title: "Bug", icon: "🐛" },
   ];
 
-
   // Common tags for work items
   const getCommonTags = () => {
     const baseTags = [
@@ -214,7 +213,6 @@ export default function Command() {
         fieldsArray.push(`"System.Tags=${selectedTag}"`);
       }
 
-
       if (fieldsArray.length > 0) {
         createCommand += ` --fields ${fieldsArray.join(" ")}`;
       }
@@ -357,7 +355,6 @@ export default function Command() {
         value={description}
         onChange={setDescription}
       />
-
 
       <Form.Dropdown
         id="tag"

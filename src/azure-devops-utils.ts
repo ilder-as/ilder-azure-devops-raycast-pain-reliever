@@ -60,7 +60,8 @@ export async function fetchWorkItemDetails(
       id: workItemId,
       title: workItem.fields?.["System.Title"] || "Unknown Title",
       type: workItem.fields?.["System.WorkItemType"] || "Unknown Type",
-      assignedTo: workItem.fields?.["System.AssignedTo"]?.uniqueName || undefined,
+      assignedTo:
+        workItem.fields?.["System.AssignedTo"]?.uniqueName || undefined,
       state: workItem.fields?.["System.State"] || "Unknown",
     };
   } catch (error) {
@@ -69,9 +70,7 @@ export async function fetchWorkItemDetails(
   }
 }
 
-export async function activateWorkItem(
-  workItemId: string,
-): Promise<boolean> {
+export async function activateWorkItem(workItemId: string): Promise<boolean> {
   try {
     const preferences = getPreferenceValues<Preferences>();
     const azCommand = "/opt/homebrew/bin/az";
@@ -86,7 +85,7 @@ export async function activateWorkItem(
     }
 
     // Activate work item and assign to current user
-    let updateCommand = `${azCommand} boards work-item update --id ${workItemId} --state "Active" --assigned-to "${currentUser}" --output json --organization "${preferences.azureOrganization}"`;
+    const updateCommand = `${azCommand} boards work-item update --id ${workItemId} --state "Active" --assigned-to "${currentUser}" --output json --organization "${preferences.azureOrganization}"`;
 
     await execAsync(updateCommand);
     return true;
@@ -110,10 +109,7 @@ export function convertToBranchName(
   return `${prefix}${slug}`;
 }
 
-export async function createBranch(
-  branchName: string,
-  workItemId: string,
-): Promise<boolean> {
+export async function createBranch(branchName: string): Promise<boolean> {
   try {
     const preferences = getPreferenceValues<Preferences>();
     const azCommand = "/opt/homebrew/bin/az";
@@ -123,7 +119,8 @@ export async function createBranch(
     }
 
     // Use repository from preferences or fall back to project name
-    const repositoryName = preferences.azureRepository || preferences.azureProject;
+    const repositoryName =
+      preferences.azureRepository || preferences.azureProject;
     const sourceBranch = preferences.sourceBranch || "main";
 
     // Step 1: Get the object ID of the source branch
@@ -138,7 +135,7 @@ export async function createBranch(
 
     // Step 2: Check if branch already exists
     const checkBranchCommand = `${azCommand} repos ref list --filter "heads/${branchName}" --query "[0].name" -o tsv --repository "${repositoryName}" --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-    
+
     try {
       const { stdout: existingBranch } = await execAsync(checkBranchCommand);
       if (existingBranch.trim()) {
@@ -149,14 +146,14 @@ export async function createBranch(
         );
         return false;
       }
-    } catch (checkError) {
+    } catch {
       // If the check command fails, it might be because the branch doesn't exist, which is what we want
       console.log("Branch check failed, assuming branch doesn't exist");
     }
 
     // Step 3: Create the branch using object ID
     const createBranchCommand = `${azCommand} repos ref create --name "refs/heads/${branchName}" --object-id "${trimmedObjectId}" --repository "${repositoryName}" --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-    
+
     await execAsync(createBranchCommand);
     return true;
   } catch (error) {
@@ -183,13 +180,14 @@ export async function createPullRequestFromWorkItem(
       throw new Error("Could not fetch work item details");
     }
 
-    const repositoryName = preferences.azureRepository || preferences.azureProject;
+    const repositoryName =
+      preferences.azureRepository || preferences.azureProject;
     const targetBranch = preferences.sourceBranch || "main";
 
     // Check if source branch is different from target branch
     if (branchName === targetBranch) {
       throw new Error(
-        `Source branch (${branchName}) cannot be the same as target branch (${targetBranch})`
+        `Source branch (${branchName}) cannot be the same as target branch (${targetBranch})`,
       );
     }
 
@@ -245,9 +243,11 @@ This PR was created from the work item activation workflow.`;
   }
 }
 
-export async function activateAndCreatePR(
-  workItemId: string,
-): Promise<{ success: boolean; prResult?: PullRequestResult; branchName?: string }> {
+export async function activateAndCreatePR(workItemId: string): Promise<{
+  success: boolean;
+  prResult?: PullRequestResult;
+  branchName?: string;
+}> {
   const preferences = getPreferenceValues<Preferences>();
 
   // Step 1: Fetch work item details
@@ -280,13 +280,9 @@ export async function activateAndCreatePR(
   );
 
   // Step 4: Create branch
-  const branchCreated = await createBranch(branchName, workItemId);
+  const branchCreated = await createBranch(branchName);
   if (!branchCreated) {
-    await showToast(
-      Toast.Style.Failure,
-      "Error", 
-      "Failed to create branch",
-    );
+    await showToast(Toast.Style.Failure, "Error", "Failed to create branch");
     return { success: false };
   }
 

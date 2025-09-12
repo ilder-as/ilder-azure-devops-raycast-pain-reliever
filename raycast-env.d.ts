@@ -24,8 +24,6 @@ type ExtensionPreferences = {
 declare type Preferences = ExtensionPreferences
 
 declare namespace Preferences {
-  /** Preferences accessible in the `branchname` command */
-  export type Branchname = ExtensionPreferences & {}
   /** Preferences accessible in the `activate-and-branch` command */
   export type ActivateAndBranch = ExtensionPreferences & {}
   /** Preferences accessible in the `check-workitem` command */
@@ -45,8 +43,6 @@ declare namespace Preferences {
 }
 
 declare namespace Arguments {
-  /** Arguments passed to the `branchname` command */
-  export type Branchname = {}
   /** Arguments passed to the `activate-and-branch` command */
   export type ActivateAndBranch = {}
   /** Arguments passed to the `check-workitem` command */
