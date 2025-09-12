@@ -36,6 +36,10 @@ declare namespace Preferences {
   export type ListBacklog = ExtensionPreferences & {}
   /** Preferences accessible in the `list-builds` command */
   export type ListBuilds = ExtensionPreferences & {}
+  /** Preferences accessible in the `list-pull-requests` command */
+  export type ListPullRequests = ExtensionPreferences & {}
+  /** Preferences accessible in the `create-user-story` command */
+  export type CreateUserStory = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -51,5 +55,9 @@ declare namespace Arguments {
   export type ListBacklog = {}
   /** Arguments passed to the `list-builds` command */
   export type ListBuilds = {}
+  /** Arguments passed to the `list-pull-requests` command */
+  export type ListPullRequests = {}
+  /** Arguments passed to the `create-user-story` command */
+  export type CreateUserStory = {}
 }
 
