@@ -10,6 +10,7 @@ import {
 import { useState, useEffect } from "react";
 import { exec } from "child_process";
 import { promisify } from "util";
+import PullRequestDetailsView from "./PullRequestDetailsView";
 
 const execAsync = promisify(exec);
 
@@ -498,12 +499,26 @@ This PR was created automatically after a successful build." \
               buildDetails.result === "succeeded" && (
                 <>
                   {existingPR ? (
-                    <Action.OpenInBrowser
-                      title="Open Pull Request"
-                      url={getPRUrl(existingPR)}
-                      icon={Icon.GitBranch}
-                      shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
-                    />
+                    <>
+                      <Action.Push
+                        title="View Pull Request Details"
+                        target={
+                          <PullRequestDetailsView
+                            pullRequestId={existingPR.pullRequestId.toString()}
+                            initialTitle={existingPR.title}
+                            project={existingPR.repository?.project?.name}
+                          />
+                        }
+                        icon={Icon.Document}
+                        shortcut={{ modifiers: ["cmd"], key: "d" }}
+                      />
+                      <Action.OpenInBrowser
+                        title="Open Pull Request"
+                        url={getPRUrl(existingPR)}
+                        icon={Icon.GitBranch}
+                        shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                      />
+                    </>
                   ) : (
                     <Action
                       title={
