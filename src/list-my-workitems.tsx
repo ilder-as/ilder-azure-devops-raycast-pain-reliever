@@ -1,21 +1,10 @@
-import {
-  List,
-  ActionPanel,
-  Action,
-  showToast,
-  Toast,
-  getPreferenceValues,
-  Icon,
-  Color,
-} from "@raycast/api";
+import { List, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, Color } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import WorkItemDetailsView from "./WorkItemDetailsView";
 import { getCurrentUser, convertToBranchName } from "./azure-devops-utils";
 
-const execAsync = promisify(exec);
 
 interface Preferences {
   branchPrefix: string;
@@ -54,7 +43,6 @@ export default function Command() {
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       const user = await getCurrentUser();
       if (!user) {
@@ -63,17 +51,20 @@ export default function Command() {
       setCurrentUser(user);
 
       // Use @Me macro to find work items assigned to current user
-      let queryCommand = `${azCommand} boards query --wiql "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.Priority] ASC, [System.ChangedDate] DESC" --output json`;
-
-      if (preferences.azureOrganization) {
-        queryCommand += ` --organization "${preferences.azureOrganization}"`;
-      }
-
-      if (preferences.azureProject) {
-        queryCommand += ` --project "${preferences.azureProject}"`;
-      }
-
-      const { stdout: queryResult } = await execAsync(queryCommand);
+      const wiql =
+        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.Priority] ASC, [System.ChangedDate] DESC";
+      const { stdout: queryResult } = await runAz([
+        "boards",
+        "query",
+        "--wiql",
+        wiql,
+        "--output",
+        "json",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+        ...(preferences.azureProject ? ["--project", preferences.azureProject] : []),
+      ]);
 
       // The Azure CLI boards query returns work items directly as an array
       const workItemsData: WorkItem[] = JSON.parse(queryResult);
@@ -277,7 +268,7 @@ export default function Command() {
                       />
                       {workItemUrl && (
                         <Action.OpenInBrowser
-                          title="Open in Azure Devops"
+                          title="Open in Azure DevOps"
                           url={workItemUrl}
                           icon={Icon.Globe}
                         />

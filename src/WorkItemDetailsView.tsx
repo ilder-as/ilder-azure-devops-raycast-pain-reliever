@@ -1,21 +1,10 @@
-import {
-  Detail,
-  ActionPanel,
-  Action,
-  showToast,
-  Toast,
-  getPreferenceValues,
-  Icon,
-  useNavigation,
-} from "@raycast/api";
+import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, useNavigation } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 import { activateAndCreatePR, convertToBranchName } from "./azure-devops-utils";
 
-const execAsync = promisify(exec);
 
 interface Preferences {
   branchPrefix: string;
@@ -88,19 +77,20 @@ export default function WorkItemDetailsView({
 
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       // Fetch detailed work item information
-      let fetchCommand = `${azCommand} boards work-item show --id ${workItemId} --output json`;
-
-      if (preferences.azureOrganization) {
-        fetchCommand += ` --organization "${preferences.azureOrganization}"`;
-      }
-
-      // Note: az boards work-item show doesn't support --project parameter
-      // The project is determined from the work item ID itself
-
-      const { stdout: workItemJson } = await execAsync(fetchCommand);
+      const { stdout: workItemJson } = await runAz([
+        "boards",
+        "work-item",
+        "show",
+        "--id",
+        workItemId,
+        "--output",
+        "json",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+      ]);
       const workItemData: WorkItemDetails = JSON.parse(workItemJson);
 
       setWorkItem(workItemData);
@@ -121,7 +111,6 @@ export default function WorkItemDetailsView({
 
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       if (!preferences.azureOrganization || !preferences.azureProject) {
         return;
@@ -138,9 +127,23 @@ export default function WorkItemDetailsView({
         preferences.azureRepository || preferences.azureProject;
 
       // Search for active PRs from this branch
-      const prListCommand = `${azCommand} repos pr list --source-branch "${branchName}" --status active --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}" --repository "${repositoryName}"`;
-
-      const { stdout: prResult } = await execAsync(prListCommand);
+      const { stdout: prResult } = await runAz([
+        "repos",
+        "pr",
+        "list",
+        "--source-branch",
+        branchName,
+        "--status",
+        "active",
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+        "--repository",
+        repositoryName,
+      ]);
       const prs = JSON.parse(prResult);
 
       if (prs && prs.length > 0) {
@@ -518,7 +521,7 @@ export default function WorkItemDetailsView({
             )}
             {workItemUrl && (
               <Action.OpenInBrowser
-                title="Open in Azure Devops"
+                title="Open in Azure DevOps"
                 url={workItemUrl}
                 icon={Icon.Globe}
                 shortcut={{ modifiers: ["cmd"], key: "o" }}

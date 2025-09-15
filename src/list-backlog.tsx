@@ -9,13 +9,12 @@ import {
   Color,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import WorkItemDetailsView from "./WorkItemDetailsView";
 import { convertToBranchName } from "./azure-devops-utils";
 
-const execAsync = promisify(exec);
+// Azure CLI runner imported via runAz utility
 
 interface Preferences {
   branchPrefix: string;
@@ -57,24 +56,26 @@ export default function Command() {
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       // Calculate SKIP value for pagination
       const skipCount = page * ITEMS_PER_PAGE;
 
       // WIQL query to get backlog items (Product Backlog Items, User Stories, Features, Epics)
       // Order by StackRank (backlog priority) and then by creation date
-      let queryCommand = `${azCommand} boards query --wiql "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.StackRank] ASC, [System.CreatedDate] DESC" --output json`;
-
-      if (preferences.azureOrganization) {
-        queryCommand += ` --organization "${preferences.azureOrganization}"`;
-      }
-
-      if (preferences.azureProject) {
-        queryCommand += ` --project "${preferences.azureProject}"`;
-      }
-
-      const { stdout: queryResult } = await execAsync(queryCommand);
+      const wiql =
+        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.StackRank] ASC, [System.CreatedDate] DESC";
+      const { stdout: queryResult } = await runAz([
+        "boards",
+        "query",
+        "--wiql",
+        wiql,
+        "--output",
+        "json",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+        ...(preferences.azureProject ? ["--project", preferences.azureProject] : []),
+      ]);
 
       // The Azure CLI boards query returns work items directly as an array
       const allWorkItems: WorkItem[] = JSON.parse(queryResult);
@@ -122,24 +123,26 @@ export default function Command() {
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       // Calculate SKIP value for pagination
       const skipCount = page * ITEMS_PER_PAGE;
 
       // WIQL query to get recently created work items (last 30 days)
       // Order by creation date (newest first)
-      let queryCommand = `${azCommand} boards query --wiql "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.CreatedDate] > @Today - 30 ORDER BY [System.CreatedDate] DESC" --output json`;
-
-      if (preferences.azureOrganization) {
-        queryCommand += ` --organization "${preferences.azureOrganization}"`;
-      }
-
-      if (preferences.azureProject) {
-        queryCommand += ` --project "${preferences.azureProject}"`;
-      }
-
-      const { stdout: queryResult } = await execAsync(queryCommand);
+      const wiqlRecent =
+        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.CreatedDate] > @Today - 30 ORDER BY [System.CreatedDate] DESC";
+      const { stdout: queryResult } = await runAz([
+        "boards",
+        "query",
+        "--wiql",
+        wiqlRecent,
+        "--output",
+        "json",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+        ...(preferences.azureProject ? ["--project", preferences.azureProject] : []),
+      ]);
 
       // The Azure CLI boards query returns work items directly as an array
       const allWorkItems: WorkItem[] = JSON.parse(queryResult);
@@ -459,7 +462,7 @@ export default function Command() {
                       />
                       {workItemUrl && (
                         <Action.OpenInBrowser
-                          title="Open in Azure Devops"
+                          title="Open in Azure DevOps"
                           url={workItemUrl}
                           icon={Icon.Globe}
                         />

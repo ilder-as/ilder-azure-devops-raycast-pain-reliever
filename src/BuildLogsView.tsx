@@ -9,11 +9,10 @@ import {
   useNavigation,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 
-const execAsync = promisify(exec);
+// Using runAz utility for Azure CLI execution
 
 interface Preferences {
   branchPrefix: string;
@@ -103,7 +102,6 @@ export default function BuildLogsView({
 
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       // Check if required configuration is available
       if (!preferences.azureOrganization) {
@@ -119,9 +117,19 @@ export default function BuildLogsView({
       }
 
       // Fetch build details
-      const buildCommand = `${azCommand} pipelines build show --id ${buildId} --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-
-      const { stdout: buildResult } = await execAsync(buildCommand);
+      const { stdout: buildResult } = await runAz([
+        "pipelines",
+        "build",
+        "show",
+        "--id",
+        String(buildId),
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+      ]);
       const buildData: BuildDetails = JSON.parse(buildResult);
 
       setBuildDetails(buildData);
@@ -298,7 +306,6 @@ export default function BuildLogsView({
 
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       if (!preferences.azureOrganization || !preferences.azureProject) {
         return; // Can't check without required config
@@ -314,9 +321,23 @@ export default function BuildLogsView({
       const actualSourceBranch = await getActualSourceBranch(buildDetails);
 
       // Search for active PRs from this source branch
-      const prListCommand = `${azCommand} repos pr list --source-branch "${actualSourceBranch}" --status active --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}" --repository "${repositoryName}"`;
-
-      const { stdout: prResult } = await execAsync(prListCommand);
+      const { stdout: prResult } = await runAz([
+        "repos",
+        "pr",
+        "list",
+        "--source-branch",
+        actualSourceBranch,
+        "--status",
+        "active",
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+        "--repository",
+        repositoryName,
+      ]);
       const prs = JSON.parse(prResult);
 
       if (prs && prs.length > 0) {
@@ -348,12 +369,20 @@ export default function BuildLogsView({
       const prId = prMergeMatch[1];
       try {
         const preferences = getPreferenceValues<Preferences>();
-        const azCommand = "/opt/homebrew/bin/az";
 
         if (preferences.azureOrganization) {
           // Fetch the PR details to get the actual source branch
-          const prCommand = `${azCommand} repos pr show --id ${prId} --output json --organization "${preferences.azureOrganization}"`;
-          const { stdout: prResult } = await execAsync(prCommand);
+          const { stdout: prResult } = await runAz([
+            "repos",
+            "pr",
+            "show",
+            "--id",
+            prId,
+            "--output",
+            "json",
+            "--organization",
+            preferences.azureOrganization!,
+          ]);
           const prData = JSON.parse(prResult);
 
           if (prData.sourceRefName) {
@@ -403,15 +432,19 @@ export default function BuildLogsView({
   ): Promise<{ title: string; type: string } | null> {
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
-      let fetchCommand = `${azCommand} boards work-item show --id ${workItemId} --output json`;
-
-      if (preferences.azureOrganization) {
-        fetchCommand += ` --organization "${preferences.azureOrganization}"`;
-      }
-
-      const { stdout } = await execAsync(fetchCommand);
+      const { stdout } = await runAz([
+        "boards",
+        "work-item",
+        "show",
+        "--id",
+        workItemId,
+        "--output",
+        "json",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+      ]);
       const workItem = JSON.parse(stdout);
 
       return {
@@ -442,7 +475,6 @@ export default function BuildLogsView({
 
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       if (!preferences.azureOrganization || !preferences.azureProject) {
         throw new Error("Azure DevOps organization and project are required");
@@ -488,34 +520,47 @@ export default function BuildLogsView({
       const shortCommit = buildDetails.sourceVersion.substring(0, 8);
 
       // Create pull request using Azure CLI
-      const createPRCommand = `${azCommand} repos pr create \
-        --source-branch "${actualSourceBranch}" \
-        --target-branch "${targetBranch}" \
-        --title "${prTitle}" \
-        --description "PR created from successful build #${buildDetails.buildNumber}
-
-**Build Details:**
-- Build ID: ${buildDetails.id}
-- Commit: ${shortCommit}
-- Status: ${buildDetails.status} (${buildDetails.result})
-- Repository: ${buildDetails.repository.name}
-- Requested by: ${buildDetails.requestedFor.displayName}
-${workItemDetails ? `- Work Item: #${workItemId} (${workItemDetails.type})` : ""}
-
-This PR was created automatically after a successful build." \
-        --output json \
-        --organization "${preferences.azureOrganization}" \
-        --project "${preferences.azureProject}" \
-        --repository "${repositoryName}"`;
-
-      const { stdout: prResult } = await execAsync(createPRCommand);
+      const prDescription = `PR created from successful build #${buildDetails.buildNumber}\n\n**Build Details:**\n- Build ID: ${buildDetails.id}\n- Commit: ${shortCommit}\n- Status: ${buildDetails.status} (${buildDetails.result})\n- Repository: ${buildDetails.repository.name}\n- Requested by: ${buildDetails.requestedFor.displayName}\n${workItemDetails ? `- Work Item: #${workItemId} (${workItemDetails.type})` : ""}\n\nThis PR was created automatically after a successful build.`;
+      const { stdout: prResult } = await runAz([
+        "repos",
+        "pr",
+        "create",
+        "--source-branch",
+        actualSourceBranch,
+        "--target-branch",
+        targetBranch,
+        "--title",
+        prTitle,
+        "--description",
+        prDescription,
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+        "--repository",
+        repositoryName,
+      ]);
       const prData = JSON.parse(prResult);
 
       // Link work item to PR if work item ID was found
       if (workItemId) {
         try {
-          const linkWorkItemCommand = `${azCommand} repos pr work-item add --id ${prData.pullRequestId} --work-items ${workItemId} --output json --organization "${preferences.azureOrganization}"`;
-          await execAsync(linkWorkItemCommand);
+          await runAz([
+            "repos",
+            "pr",
+            "work-item",
+            "add",
+            "--id",
+            String(prData.pullRequestId),
+            "--work-items",
+            workItemId,
+            "--output",
+            "json",
+            "--organization",
+            preferences.azureOrganization!,
+          ]);
         } catch (linkError) {
           console.error("Failed to link work item to PR:", linkError);
           // Don't fail the entire operation if linking fails
@@ -671,9 +716,7 @@ This PR was created automatically after a successful build." \
                     </>
                   ) : (
                     <Action
-                      title={
-                        isCreatingPR ? "Creating Pr…" : "Create Pull Request"
-                      }
+                      title={isCreatingPR ? "Creating PR…" : "Create Pull Request"}
                       onAction={createPullRequest}
                       icon={Icon.Code}
                       shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
@@ -683,7 +726,7 @@ This PR was created automatically after a successful build." \
               )}
             {buildUrl && (
               <Action.OpenInBrowser
-                title="Open Build in Azure Devops"
+                title="Open Build in Azure DevOps"
                 url={buildUrl}
                 icon={Icon.Globe}
                 shortcut={{ modifiers: ["cmd"], key: "o" }}

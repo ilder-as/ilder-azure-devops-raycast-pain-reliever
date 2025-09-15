@@ -1,20 +1,9 @@
-import {
-  List,
-  ActionPanel,
-  Action,
-  showToast,
-  Toast,
-  getPreferenceValues,
-  Icon,
-  Color,
-} from "@raycast/api";
+import { List, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, Color } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 import { getCurrentUser } from "./azure-devops-utils";
 
-const execAsync = promisify(exec);
 
 interface Preferences {
   branchPrefix: string;
@@ -68,7 +57,6 @@ export default function Command() {
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       const user = await getCurrentUser();
       if (!user) {
@@ -90,22 +78,46 @@ export default function Command() {
       }
 
       // Fetch PRs where user is the creator
-      let createdPRsCommand = `${azCommand} repos pr list --creator "${user}" --status active --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-
-      if (preferences.azureRepository) {
-        createdPRsCommand += ` --repository "${preferences.azureRepository}"`;
-      }
-
-      // Fetch PRs where user is a reviewer
-      let reviewPRsCommand = `${azCommand} repos pr list --reviewer "${user}" --status active --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-
-      if (preferences.azureRepository) {
-        reviewPRsCommand += ` --repository "${preferences.azureRepository}"`;
-      }
+      const createdArgs = [
+        "repos",
+        "pr",
+        "list",
+        "--creator",
+        user,
+        "--status",
+        "active",
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+        ...(preferences.azureRepository
+          ? ["--repository", preferences.azureRepository]
+          : []),
+      ];
+      const reviewArgs = [
+        "repos",
+        "pr",
+        "list",
+        "--reviewer",
+        user,
+        "--status",
+        "active",
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+        ...(preferences.azureRepository
+          ? ["--repository", preferences.azureRepository]
+          : []),
+      ];
 
       const [createdResult, reviewResult] = await Promise.all([
-        execAsync(createdPRsCommand),
-        execAsync(reviewPRsCommand),
+        runAz(createdArgs),
+        runAz(reviewArgs),
       ]);
 
       const createdPRs: PullRequest[] = JSON.parse(createdResult.stdout);
@@ -325,7 +337,7 @@ export default function Command() {
                   <ActionPanel>
                     <ActionPanel.Section title="Pull Request Actions">
                       <Action.Push
-                        title="View Pr Details"
+                        title="View PR Details"
                         target={
                           <PullRequestDetailsView
                             pullRequestId={pr.pullRequestId.toString()}
@@ -338,19 +350,19 @@ export default function Command() {
                       />
                       {prUrl && (
                         <Action.OpenInBrowser
-                          title="Open in Azure Devops"
+                          title="Open in Azure DevOps"
                           url={prUrl}
                           icon={Icon.Globe}
                           shortcut={{ modifiers: ["cmd"], key: "o" }}
                         />
                       )}
                       <Action.CopyToClipboard
-                        title="Copy Pr ID"
+                        title="Copy PR ID"
                         content={pr.pullRequestId.toString()}
                         icon={Icon.Clipboard}
                       />
                       <Action.CopyToClipboard
-                        title="Copy Pr Title"
+                        title="Copy PR Title"
                         content={pr.title}
                         icon={Icon.Text}
                       />
@@ -361,7 +373,7 @@ export default function Command() {
                         shortcut={{ modifiers: ["cmd"], key: "b" }}
                       />
                       <Action.CopyToClipboard
-                        title="Copy Pr URL"
+                        title="Copy PR URL"
                         content={prUrl}
                         icon={Icon.Link}
                         shortcut={{ modifiers: ["cmd"], key: "u" }}

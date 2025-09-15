@@ -9,11 +9,10 @@ import {
   Color,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
 import BuildLogsView from "./BuildLogsView";
+import { runAz } from "./az-cli";
 
-const execAsync = promisify(exec);
+// Using runAz utility for all Azure CLI invocations
 
 interface Preferences {
   branchPrefix: string;
@@ -68,7 +67,6 @@ export default function Command() {
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       // Check if required configuration is available
       if (!preferences.azureOrganization) {
@@ -86,16 +84,57 @@ export default function Command() {
       }
 
       // Build base commands with required parameters - fetch separate status calls since comma-separated values not supported
-      const inProgressCommand = `${azCommand} pipelines build list --status inProgress --top 10 --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-      const notStartedCommand = `${azCommand} pipelines build list --status notStarted --top 10 --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-      const completedCommand = `${azCommand} pipelines build list --status completed --top 50 --output json --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
+      const inProgressArgs = [
+        "pipelines",
+        "build",
+        "list",
+        "--status",
+        "inProgress",
+        "--top",
+        "10",
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+      ];
+      const notStartedArgs = [
+        "pipelines",
+        "build",
+        "list",
+        "--status",
+        "notStarted",
+        "--top",
+        "10",
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+      ];
+      const completedArgs = [
+        "pipelines",
+        "build",
+        "list",
+        "--status",
+        "completed",
+        "--top",
+        "50",
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+        "--project",
+        preferences.azureProject!,
+      ];
 
-      const [inProgressResult, notStartedResult, completedResult] =
-        await Promise.all([
-          execAsync(inProgressCommand),
-          execAsync(notStartedCommand),
-          execAsync(completedCommand),
-        ]);
+      const [inProgressResult, notStartedResult, completedResult] = await Promise.all([
+        runAz(inProgressArgs),
+        runAz(notStartedArgs),
+        runAz(completedArgs),
+      ]);
 
       const inProgressBuilds: Build[] = JSON.parse(inProgressResult.stdout);
       const notStartedBuilds: Build[] = JSON.parse(notStartedResult.stdout);
@@ -377,7 +416,7 @@ export default function Command() {
               />
               {buildUrl && (
                 <Action.OpenInBrowser
-                  title="Open in Azure Devops"
+                  title="Open in Azure DevOps"
                   url={buildUrl}
                   icon={Icon.Globe}
                 />
@@ -436,14 +475,14 @@ export default function Command() {
 
   useEffect(() => {
     fetchBuilds(0);
+  }, []);
 
-    // Auto-refresh every 30 seconds for builds
+  useEffect(() => {
     const interval = setInterval(() => {
       fetchBuilds(currentPage);
     }, 30000);
-
     return () => clearInterval(interval);
-  }, []);
+  }, [currentPage]);
 
   return (
     <List

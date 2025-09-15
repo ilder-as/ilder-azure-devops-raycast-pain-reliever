@@ -1,16 +1,16 @@
 # CLAUDE.md - Azure DevOps Raycast Extension
 
 ## Project Overview
-This is a Raycast extension for Azure DevOps integration that helps with work item management and branch creation. The extension provides commands to check work items, activate and create branches, generate branch names, and list work items assigned to the current user.
+This is a Raycast extension for Azure DevOps integration that helps with work item management, branch and PR creation, and monitoring builds. It includes commands to check and list work items, browse backlog, view builds and pull requests, and create new work items.
 
 ## Prerequisites and Setup
 
 ### Required Tools
 - **Azure CLI**: The extension uses the Azure CLI for all Azure DevOps operations
   - Install via Homebrew: `brew install azure-cli`
-  - The extension specifically looks for Azure CLI at: `/opt/homebrew/bin/az`
+  - Detection order: `AZ_CLI` env var -> `az` on PATH -> common install paths
   - Must be authenticated: `az login`
-  - Must have Azure DevOps extension: `az extension add --name azure-devops`
+  - Install Azure DevOps extension: `az extension add --name azure-devops`
 
 ### Configuration
 Configure the extension preferences in Raycast settings:
@@ -22,29 +22,25 @@ Configure the extension preferences in Raycast settings:
 
 ## Commands
 
-### 1. Generate Branch Name (`branchname`)
-- Converts task descriptions to standardized branch name format
-- Entry point: `src/branchname.tsx`
-
-### 2. Activate and Branch Work Item (`activate-and-branch`)
+### 1. Activate and Branch Work Item (`activate-and-branch`)
 - Sets work item to active state
 - Assigns work item to current user
 - Creates a new branch in Azure DevOps
 - Entry point: `src/activate-and-branch.tsx`
 
-### 3. Check Work Item (`check-workitem`)
+### 2. Check Work Item (`check-workitem`)
 - Views work item details without making changes
 - Generates URLs and suggested branch names
 - Entry point: `src/check-workitem.tsx`
 
-### 4. List My Work Items (`list-my-workitems`)
+### 3. List My Work Items (`list-my-workitems`)
 - Lists ALL work item types assigned to the current user (Tasks, User Stories, Bugs, Features, Epics, Product Backlog Items, etc.)
 - Shows work item details, state, and last update with type-specific icons
 - Filters out completed items (Closed, Removed, Done states)
 - Provides actions to open, copy ID, title, or branch name
 - Entry point: `src/list-my-workitems.tsx`
 
-### 5. List Backlog (`list-backlog`)
+### 4. List Backlog (`list-backlog`)
 - Browse backlog items with pagination (8 items per page)
 - Shows backlog items ordered by StackRank (backlog priority) then creation date
 - Includes Product Backlog Items, User Stories, Features, Epics, Bugs, and Tasks
@@ -52,13 +48,19 @@ Configure the extension preferences in Raycast settings:
 - Shows position in overall backlog and current page information
 - Entry point: `src/list-backlog.tsx`
 
-### 6. List Active Builds (`list-active-builds`)
-- View all active/running builds with real-time status updates
-- Shows build status, duration, branch, and requested by information
-- Auto-refresh every 30 seconds for live build monitoring  
-- Pagination support for large build lists (15 items per page)
-- Access to live log streaming for each build
-- Entry point: `src/list-active-builds.tsx`
+### 5. List Builds (`list-builds`)
+- View active and recent completed builds
+- Auto-refresh every 30 seconds (fixed to respect current page)
+- Quick open and PR creation on successful builds
+- Entry point: `src/list-builds.tsx`
+
+### 6. List Pull Requests (`list-pull-requests`)
+- View active PRs where you’re author or reviewer
+- Quick open and copy actions
+- Entry point: `src/list-pull-requests.tsx`
+
+### 7. Create Items
+- Create User Story (`src/create-user-story.tsx`) and generic Work Item (`src/create-work-item.tsx`)
 
 ## Technical Architecture
 
@@ -66,27 +68,38 @@ Configure the extension preferences in Raycast settings:
 - **@raycast/api**: Core Raycast API for UI components and system integration
 - **@raycast/utils**: Utility functions for Raycast extensions
 - Built with TypeScript and React
+ - Azure CLI executed via `execFile` with argument arrays for safety (see `src/az-cli.ts`)
 
 ### Code Structure
 ```
 src/
-├── branchname.tsx          # Branch name generation
-├── activate-and-branch.tsx # Work item activation and branch creation
-├── check-workitem.tsx      # Work item details viewer
-└── list-my-workitems.tsx   # List assigned work items
+├── az-cli.ts                 # Azure CLI resolver and runner (execFile + args)
+├── azure-devops-utils.ts     # Shared helpers (user, branches, PRs, work items)
+├── ActivateAndBranchForm.tsx # UI for activate + branch workflow
+├── activate-and-branch.tsx   # Command entry
+├── check-workitem.tsx        # Work item details viewer
+├── list-my-workitems.tsx     # List assigned work items
+├── list-backlog.tsx          # Backlog browser with pagination
+├── list-builds.tsx           # Builds (active + recent) with auto-refresh
+├── BuildLogsView.tsx         # Build details and PR creation from builds
+├── list-pull-requests.tsx    # Active PRs (author/reviewer)
+├── PullRequestDetailsView.tsx# PR details
+├── create-user-story.tsx     # Create user story
+└── create-work-item.tsx      # Create generic work item
 ```
 
 ### Azure DevOps Integration
-- Uses Azure CLI commands via Node.js `child_process.exec`
-- Commands are executed asynchronously with proper error handling
+- Uses Azure CLI commands via Node.js `child_process.execFile` through `runAz`
+- Safer argument handling (no shell string interpolation)
 - Supports organization and project-specific operations
 - Automatically detects project from work items when not configured
 
 ### Key Functions
-- `getCurrentUser()`: Gets current Azure user via `az account show`
-- `fetchWorkItem()`: Retrieves work item details via `az boards work-item show`
-- `convertToBranchName()`: Converts work item info to branch name format
-- `fetchMyWorkItems()`: Queries work items assigned to current user
+- `resolveAz()/runAz()`: Resolve and invoke Azure CLI safely
+- `getCurrentUser()`: Get current Azure user via `az account show`
+- `fetchWorkItemDetails()`: Retrieve work item details
+- `convertToBranchName()`: Convert work item info to branch slug
+- `createBranch()/createPullRequestFromWorkItem()`: Branch/PR workflows
 
 ## Development Commands
 - `npm run dev`: Start development mode
@@ -163,7 +176,7 @@ All list components MUST include `List.EmptyView` components to provide friendly
 **Required for all list views:**
 - `list-my-workitems.tsx` ✅ - "Congratulations! You have no assigned tasks!"
 - `list-backlog.tsx` ✅ - Context-aware for "Empty Backlog" vs "No Recent Work Items"
-- `list-builds.tsx` ✅ - "No Builds Found"  
+- `list-builds.tsx` ✅ - "No Builds Found"
 - `list-pull-requests.tsx` ✅ - "No Pull Requests Found"
 
 **Best Practices:**

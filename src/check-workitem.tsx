@@ -1,17 +1,7 @@
-import {
-  Form,
-  ActionPanel,
-  Action,
-  showToast,
-  Toast,
-  getPreferenceValues,
-} from "@raycast/api";
+import { Form, ActionPanel, Action, showToast, Toast, getPreferenceValues } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { convertToBranchName, fetchWorkItemDetails } from "./azure-devops-utils";
-
-const execAsync = promisify(exec);
+import { runAz } from "./az-cli";
+import { convertToBranchName } from "./azure-devops-utils";
 
 interface Preferences {
   branchPrefix: string;
@@ -48,19 +38,20 @@ export default function Command() {
     setIsLoading(true);
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       // Fetch work item details
-      let fetchCommand = `${azCommand} boards work-item show --id ${workItemId} --output json`;
-
-      if (preferences.azureOrganization) {
-        fetchCommand += ` --organization "${preferences.azureOrganization}"`;
-      }
-
-      // Note: az boards work-item show doesn't support --project parameter
-      // The project is determined from the work item ID itself
-
-      const { stdout: workItemJson } = await execAsync(fetchCommand);
+      const { stdout: workItemJson } = await runAz([
+        "boards",
+        "work-item",
+        "show",
+        "--id",
+        workItemId,
+        "--output",
+        "json",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+      ]);
       const workItem: WorkItem = JSON.parse(workItemJson);
       setWorkItemDetails(workItem);
 
@@ -195,4 +186,3 @@ export default function Command() {
     </Form>
   );
 }
-

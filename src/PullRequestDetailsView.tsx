@@ -1,17 +1,6 @@
-import {
-  Detail,
-  ActionPanel,
-  Action,
-  showToast,
-  Toast,
-  getPreferenceValues,
-  Icon,
-} from "@raycast/api";
+import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { exec } from "child_process";
-import { promisify } from "util";
-
-const execAsync = promisify(exec);
+import { runAz } from "./az-cli";
 
 interface Preferences {
   branchPrefix: string;
@@ -82,7 +71,6 @@ export default function PullRequestDetailsView({
 
     try {
       const preferences = getPreferenceValues<Preferences>();
-      const azCommand = "/opt/homebrew/bin/az";
 
       // Check if required configuration is available
       if (!preferences.azureOrganization) {
@@ -102,9 +90,17 @@ export default function PullRequestDetailsView({
       // According to az repos pr show --help, it only supports:
       // --id (required), --organization, --detect, --open
       // It does NOT support --project or --repository parameters
-      const prCommand = `${azCommand} repos pr show --id ${pullRequestId} --output json --organization "${preferences.azureOrganization}"`;
-
-      const { stdout: prResult } = await execAsync(prCommand);
+      const { stdout: prResult } = await runAz([
+        "repos",
+        "pr",
+        "show",
+        "--id",
+        pullRequestId,
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization!,
+      ]);
       const prData: PullRequestDetails = JSON.parse(prResult);
 
       setPrDetails(prData);
@@ -258,20 +254,20 @@ export default function PullRequestDetailsView({
           <ActionPanel.Section title="Pull Request Actions">
             {prUrl && (
               <Action.OpenInBrowser
-                title="Open Pr in Azure Devops"
+                title="Open PR in Azure DevOps"
                 url={prUrl}
                 icon={Icon.Globe}
                 shortcut={{ modifiers: ["cmd"], key: "o" }}
               />
             )}
             <Action.CopyToClipboard
-              title="Copy Pr URL"
+              title="Copy PR URL"
               content={prUrl || ""}
               icon={Icon.Link}
               shortcut={{ modifiers: ["cmd"], key: "l" }}
             />
             <Action.CopyToClipboard
-              title="Copy Pr ID"
+              title="Copy PR ID"
               content={pullRequestId}
               icon={Icon.Hashtag}
               shortcut={{ modifiers: ["cmd"], key: "c" }}
@@ -279,7 +275,7 @@ export default function PullRequestDetailsView({
             {prDetails && (
               <>
                 <Action.CopyToClipboard
-                  title="Copy Pr Title"
+                  title="Copy PR Title"
                   content={prDetails.title}
                   icon={Icon.Text}
                 />

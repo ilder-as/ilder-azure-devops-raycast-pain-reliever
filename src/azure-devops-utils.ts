@@ -1,8 +1,5 @@
-import { exec } from "child_process";
-import { promisify } from "util";
 import { getPreferenceValues, showToast, Toast } from "@raycast/api";
-
-const execAsync = promisify(exec);
+import { runAz } from "./az-cli";
 
 interface Preferences {
   branchPrefix: string;
@@ -29,10 +26,14 @@ interface PullRequestResult {
 
 export async function getCurrentUser(): Promise<string | null> {
   try {
-    const azCommand = "/opt/homebrew/bin/az";
-    const { stdout: userEmail } = await execAsync(
-      `${azCommand} account show --query user.name -o tsv`,
-    );
+    const { stdout: userEmail } = await runAz([
+      "account",
+      "show",
+      "--query",
+      "user.name",
+      "-o",
+      "tsv",
+    ]);
     return userEmail.trim();
   } catch (error) {
     console.error("Failed to get current user:", error);
@@ -45,15 +46,19 @@ export async function fetchWorkItemDetails(
 ): Promise<WorkItemDetails | null> {
   try {
     const preferences = getPreferenceValues<Preferences>();
-    const azCommand = "/opt/homebrew/bin/az";
-
-    let fetchCommand = `${azCommand} boards work-item show --id ${workItemId} --output json`;
-
-    if (preferences.azureOrganization) {
-      fetchCommand += ` --organization "${preferences.azureOrganization}"`;
-    }
-
-    const { stdout } = await execAsync(fetchCommand);
+    const args = [
+      "boards",
+      "work-item",
+      "show",
+      "--id",
+      workItemId,
+      "--output",
+      "json",
+      ...(preferences.azureOrganization
+        ? ["--organization", preferences.azureOrganization]
+        : []),
+    ];
+    const { stdout } = await runAz(args);
     const workItem = JSON.parse(stdout);
 
     return {
@@ -73,7 +78,6 @@ export async function fetchWorkItemDetails(
 export async function activateWorkItem(workItemId: string): Promise<boolean> {
   try {
     const preferences = getPreferenceValues<Preferences>();
-    const azCommand = "/opt/homebrew/bin/az";
     const currentUser = await getCurrentUser();
 
     if (!preferences.azureOrganization) {
@@ -85,9 +89,21 @@ export async function activateWorkItem(workItemId: string): Promise<boolean> {
     }
 
     // Activate work item and assign to current user
-    const updateCommand = `${azCommand} boards work-item update --id ${workItemId} --state "Active" --assigned-to "${currentUser}" --output json --organization "${preferences.azureOrganization}"`;
-
-    await execAsync(updateCommand);
+    await runAz([
+      "boards",
+      "work-item",
+      "update",
+      "--id",
+      workItemId,
+      "--state",
+      "Active",
+      "--assigned-to",
+      currentUser,
+      "--output",
+      "json",
+      "--organization",
+      preferences.azureOrganization!,
+    ]);
     return true;
   } catch (error) {
     console.error("Failed to activate work item:", error);
@@ -112,7 +128,6 @@ export function convertToBranchName(
 export async function createBranch(branchName: string): Promise<boolean> {
   try {
     const preferences = getPreferenceValues<Preferences>();
-    const azCommand = "/opt/homebrew/bin/az";
 
     if (!preferences.azureOrganization || !preferences.azureProject) {
       throw new Error("Azure DevOps organization and project are required");
@@ -124,9 +139,23 @@ export async function createBranch(branchName: string): Promise<boolean> {
     const sourceBranch = preferences.sourceBranch || "main";
 
     // Step 1: Get the object ID of the source branch
-    const getObjectIdCommand = `${azCommand} repos ref list --filter "heads/${sourceBranch}" --query "[0].objectId" -o tsv --repository "${repositoryName}" --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-
-    const { stdout: objectId } = await execAsync(getObjectIdCommand);
+    const { stdout: objectId } = await runAz([
+      "repos",
+      "ref",
+      "list",
+      "--filter",
+      `heads/${sourceBranch}`,
+      "--query",
+      "[0].objectId",
+      "-o",
+      "tsv",
+      "--repository",
+      repositoryName,
+      "--organization",
+      preferences.azureOrganization,
+      "--project",
+      preferences.azureProject,
+    ]);
     const trimmedObjectId = objectId.trim();
 
     if (!trimmedObjectId) {
@@ -134,10 +163,24 @@ export async function createBranch(branchName: string): Promise<boolean> {
     }
 
     // Step 2: Check if branch already exists
-    const checkBranchCommand = `${azCommand} repos ref list --filter "heads/${branchName}" --query "[0].name" -o tsv --repository "${repositoryName}" --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-
     try {
-      const { stdout: existingBranch } = await execAsync(checkBranchCommand);
+      const { stdout: existingBranch } = await runAz([
+        "repos",
+        "ref",
+        "list",
+        "--filter",
+        `heads/${branchName}`,
+        "--query",
+        "[0].name",
+        "-o",
+        "tsv",
+        "--repository",
+        repositoryName,
+        "--organization",
+        preferences.azureOrganization,
+        "--project",
+        preferences.azureProject,
+      ]);
       if (existingBranch.trim()) {
         await showToast(
           Toast.Style.Failure,
@@ -152,9 +195,21 @@ export async function createBranch(branchName: string): Promise<boolean> {
     }
 
     // Step 3: Create the branch using object ID
-    const createBranchCommand = `${azCommand} repos ref create --name "refs/heads/${branchName}" --object-id "${trimmedObjectId}" --repository "${repositoryName}" --organization "${preferences.azureOrganization}" --project "${preferences.azureProject}"`;
-
-    await execAsync(createBranchCommand);
+    await runAz([
+      "repos",
+      "ref",
+      "create",
+      "--name",
+      `refs/heads/${branchName}`,
+      "--object-id",
+      trimmedObjectId,
+      "--repository",
+      repositoryName,
+      "--organization",
+      preferences.azureOrganization,
+      "--project",
+      preferences.azureProject,
+    ]);
     return true;
   } catch (error) {
     console.error("Failed to create branch:", error);
@@ -168,7 +223,6 @@ export async function createPullRequestFromWorkItem(
 ): Promise<PullRequestResult | null> {
   try {
     const preferences = getPreferenceValues<Preferences>();
-    const azCommand = "/opt/homebrew/bin/az";
 
     if (!preferences.azureOrganization || !preferences.azureProject) {
       throw new Error("Azure DevOps organization and project are required");
@@ -202,23 +256,45 @@ export async function createPullRequestFromWorkItem(
 This PR was created from the work item activation workflow.`;
 
     // Create pull request
-    const createPRCommand = `${azCommand} repos pr create \
-      --source-branch "${branchName}" \
-      --target-branch "${targetBranch}" \
-      --title "${prTitle}" \
-      --description "${prDescription}" \
-      --output json \
-      --organization "${preferences.azureOrganization}" \
-      --project "${preferences.azureProject}" \
-      --repository "${repositoryName}"`;
-
-    const { stdout: prResult } = await execAsync(createPRCommand);
+    const { stdout: prResult } = await runAz([
+      "repos",
+      "pr",
+      "create",
+      "--source-branch",
+      branchName,
+      "--target-branch",
+      targetBranch,
+      "--title",
+      prTitle,
+      "--description",
+      prDescription,
+      "--output",
+      "json",
+      "--organization",
+      preferences.azureOrganization,
+      "--project",
+      preferences.azureProject,
+      "--repository",
+      repositoryName,
+    ]);
     const prData = JSON.parse(prResult);
 
     // Link work item to PR
     try {
-      const linkWorkItemCommand = `${azCommand} repos pr work-item add --id ${prData.pullRequestId} --work-items ${workItemId} --output json --organization "${preferences.azureOrganization}"`;
-      await execAsync(linkWorkItemCommand);
+      await runAz([
+        "repos",
+        "pr",
+        "work-item",
+        "add",
+        "--id",
+        String(prData.pullRequestId),
+        "--work-items",
+        workItemId,
+        "--output",
+        "json",
+        "--organization",
+        preferences.azureOrganization,
+      ]);
     } catch (linkError) {
       console.error("Failed to link work item to PR:", linkError);
       await showToast(
