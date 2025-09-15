@@ -39,7 +39,6 @@ export default function Command() {
         placeholder="Enter work item ID (e.g., 109)"
         value={workItemId}
         onChange={setWorkItemId}
-        onBlur={(e) => setWorkItemId(e.target.value.trim())}
       />
     </Form>
   );

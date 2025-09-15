@@ -208,7 +208,8 @@ export default function Command() {
       // Build the create command
       const fieldsArray: string[] = [];
       if (selectedTag) {
-        fieldsArray.push(`"System.Tags=${selectedTag}"`);
+        // Do not include quotes when passing as separate args
+        fieldsArray.push(`System.Tags=${selectedTag}`);
       }
       const createArgs = [
         "boards",

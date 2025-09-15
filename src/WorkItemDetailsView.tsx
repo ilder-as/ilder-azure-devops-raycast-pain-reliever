@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import PullRequestDetailsView from "./PullRequestDetailsView";
-import { activateAndCreatePR, convertToBranchName } from "./azure-devops-utils";
+import { activateAndCreatePR, convertToBranchName, findExistingBranchesForWorkItem } from "./azure-devops-utils";
 
 
 interface Preferences {
@@ -68,6 +68,7 @@ export default function WorkItemDetailsView({
     project: string;
   } | null>(null);
   const [isCheckingPR, setIsCheckingPR] = useState(false);
+  const [relatedBranches, setRelatedBranches] = useState<string[]>([]);
 
   const { push } = useNavigation();
 
@@ -113,6 +114,20 @@ export default function WorkItemDetailsView({
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function checkForRelatedBranches() {
+    try {
+      if (!workItem) return;
+      const branches = await findExistingBranchesForWorkItem(
+        workItem.id.toString(),
+        workItem.fields["System.Title"],
+      );
+      setRelatedBranches(branches);
+    } catch (e) {
+      console.log("Could not check branches:", e);
+      setRelatedBranches([]);
     }
   }
 
@@ -292,50 +307,66 @@ export default function WorkItemDetailsView({
         return;
       }
 
-      // Generate expected branch name
-      const branchName = convertToBranchName(
+      // Expected branch based on current user's prefix
+      const expectedBranch = convertToBranchName(
         workItem.id.toString(),
         workItem.fields["System.Title"],
         preferences.branchPrefix,
       );
 
+      // Also look for any other branches for this WI
+      const found = await findExistingBranchesForWorkItem(
+        workItem.id.toString(),
+        workItem.fields["System.Title"],
+      );
+      setRelatedBranches(found);
+
+      const branchesToCheck = Array.from(new Set([expectedBranch, ...found]));
+
       const repositoryName =
         preferences.azureRepository || preferences.azureProject;
 
-      // Search for active PRs from this branch
-      const { stdout: prResult } = await runAz([
-        "repos",
-        "pr",
-        "list",
-        "--source-branch",
-        branchName,
-        "--status",
-        "active",
-        "--output",
-        "json",
-        "--organization",
-        preferences.azureOrganization!,
-        "--project",
-        preferences.azureProject!,
-        "--repository",
-        repositoryName,
-      ]);
-      const prs = JSON.parse(prResult);
-
-      if (prs && prs.length > 0) {
-        // Found existing PR(s), use the first one
-        const pr = prs[0];
-        setExistingPR({
-          pullRequestId: pr.pullRequestId,
-          title: pr.title,
-          project:
-            pr.repository?.project?.name ||
-            preferences.azureProject ||
-            "Unknown",
-        });
-      } else {
-        setExistingPR(null);
+      // Search for active PRs from any of the candidate branches
+      for (const sourceBranch of branchesToCheck) {
+        try {
+          const { stdout: prResult } = await runAz([
+            "repos",
+            "pr",
+            "list",
+            "--source-branch",
+            sourceBranch,
+            "--status",
+            "active",
+            "--output",
+            "json",
+            "--organization",
+            preferences.azureOrganization!,
+            "--project",
+            preferences.azureProject!,
+            "--repository",
+            repositoryName,
+          ]);
+          const prs = JSON.parse(prResult);
+          if (prs && prs.length > 0) {
+            const pr = prs[0];
+            setExistingPR({
+              pullRequestId: pr.pullRequestId,
+              title: pr.title,
+              project:
+                pr.repository?.project?.name ||
+                preferences.azureProject ||
+                "Unknown",
+            });
+            return; // Found a PR; we can stop checking further
+          }
+        } catch (e) {
+          // Ignore per-branch failures and continue
+          console.log("PR check failed for branch", sourceBranch, e);
+        }
       }
+
+      // No PRs found across any branches
+      setExistingPR(null);
     } catch (error) {
       // Silently fail - PR checking is optional
       console.log("Could not check for existing PRs:", error);
@@ -578,8 +609,15 @@ export default function WorkItemDetailsView({
       }
     }
 
-    // Suggested Branch Name (compact)
-    markdown += `**Branch:** \`${branchName}\`\n\n`;
+    // Branch info — prefer showing any existing remote branches regardless of owner
+    if (relatedBranches.length > 0) {
+      const shown = relatedBranches.slice(0, 2).map((b) => `\`${b}\``).join(", ");
+      const extra = relatedBranches.length > 2 ? ` (+${relatedBranches.length - 2} more)` : "";
+      markdown += `**Active Branch${relatedBranches.length > 1 ? "es" : ""}:** ${shown}${extra}\n\n`;
+    } else {
+      // Suggested Branch Name (fallback)
+      markdown += `**Branch:** \`${branchName}\`\n\n`;
+    }
 
     return markdown;
   }

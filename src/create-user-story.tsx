@@ -183,7 +183,8 @@ export default function Command() {
       // Build the create command
       const fieldsArray: string[] = [];
       if (selectedTag) {
-        fieldsArray.push(`"System.Tags=${selectedTag}"`);
+        // Pass field pairs without wrapping quotes since args are passed as an array
+        fieldsArray.push(`System.Tags=${selectedTag}`);
       }
       const { stdout } = await runAz([
         "boards",

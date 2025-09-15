@@ -125,6 +125,61 @@ export function convertToBranchName(
   return `${prefix}${slug}`;
 }
 
+// Find existing remote branches that appear to belong to this work item, regardless of developer prefix
+export async function findExistingBranchesForWorkItem(
+  workItemId: string,
+  title: string,
+): Promise<string[]> {
+  try {
+    const preferences = getPreferenceValues<Preferences>();
+    if (!preferences.azureOrganization || !preferences.azureProject) {
+      return [];
+    }
+
+    const repositoryName = preferences.azureRepository || preferences.azureProject;
+
+    // Build the common slug used at the end of our branch names
+    const slug = convertToBranchName(workItemId, title, ""); // no prefix
+
+    // List all heads and filter by suffix match to the slug or id
+    const { stdout } = await runAz([
+      "repos",
+      "ref",
+      "list",
+      "--filter",
+      "heads/",
+      "--output",
+      "json",
+      "--repository",
+      repositoryName,
+      "--organization",
+      preferences.azureOrganization,
+      "--project",
+      preferences.azureProject,
+    ]);
+
+    const refs = JSON.parse(stdout) as Array<{ name?: string }>;
+    const lowerSuffix = `/${slug}`.toLowerCase();
+    const idNeedle = `/${workItemId}-`;
+
+    const branches = refs
+      .map((r) => r.name || "")
+      .filter(Boolean)
+      .filter((name) => name.toLowerCase().startsWith("refs/heads/"))
+      .filter((name) => {
+        const lower = name.toLowerCase();
+        return lower.endsWith(lowerSuffix) || lower.includes(idNeedle);
+      })
+      .map((name) => name.replace(/^refs\/heads\//i, ""));
+
+    // Deduplicate
+    return Array.from(new Set(branches));
+  } catch (error) {
+    console.error("Failed to find existing branches for work item:", error);
+    return [];
+  }
+}
+
 export async function createBranch(branchName: string): Promise<boolean> {
   try {
     const preferences = getPreferenceValues<Preferences>();
