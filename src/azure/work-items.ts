@@ -56,6 +56,7 @@ export async function getRelatedWorkItems(
   parent: WorkItemLite | null;
   siblings: WorkItemLite[];
   related: WorkItemLite[];
+  children: WorkItemLite[];
 }> {
   const preferences = getPreferenceValues<Preferences>();
 
@@ -67,6 +68,7 @@ export async function getRelatedWorkItems(
   let parent: WorkItemLite | null = null;
   let siblings: WorkItemLite[] = [];
   let relatedItems: WorkItemLite[] = [];
+  let children: WorkItemLite[] = [];
 
   const { stdout: relStdout } = await runAz([
     "boards",
@@ -84,6 +86,17 @@ export async function getRelatedWorkItems(
   ]);
   const withRels = JSON.parse(relStdout);
   const relations: RelationItem[] = withRels.relations || [];
+
+  // Children of the current item (Hierarchy-Forward)
+  const childIds = relations
+    .filter((r) => r.rel?.toLowerCase().includes("hierarchy-forward"))
+    .map((r) => extractId(r.url))
+    .filter((id): id is number => !!id)
+    .slice(0, 25);
+  if (childIds.length) {
+    const fetched = await Promise.all(childIds.map((id) => getWorkItemLite(id)));
+    children = fetched.filter((w): w is WorkItemLite => !!w);
+  }
 
   const parentRel = relations.find((r) =>
     r.rel?.toLowerCase().includes("hierarchy-reverse"),
@@ -130,5 +143,5 @@ export async function getRelatedWorkItems(
     relatedItems = fetched.filter((w): w is WorkItemLite => !!w);
   }
 
-  return { parent, siblings, related: relatedItems };
+  return { parent, siblings, related: relatedItems, children };
 }

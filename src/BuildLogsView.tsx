@@ -708,7 +708,7 @@ export default function BuildLogsView({
                         shortcut={{ modifiers: ["cmd"], key: "d" }}
                       />
                       <Action.OpenInBrowser
-                        title="Open Pull Request"
+                        title="View Pull Request"
                         url={getPRUrl(existingPR)}
                         icon={Icon.Code}
                         shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}

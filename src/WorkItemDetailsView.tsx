@@ -5,6 +5,7 @@ import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 import { activateAndCreatePR, convertToBranchName, findExistingBranchesForWorkItem } from "./azure-devops-utils";
 import { getRelatedWorkItems, WorkItemLite } from "./azure/work-items";
+import LinkUserStoryToFeature from "./LinkUserStoryToFeature";
 
 
 interface Preferences {
@@ -75,6 +76,7 @@ export default function WorkItemDetailsView({
   const [parentItem, setParentItem] = useState<WorkItemLite | null>(null);
   const [siblingItems, setSiblingItems] = useState<WorkItemLite[]>([]);
   const [relatedItems, setRelatedItems] = useState<WorkItemLite[]>([]);
+  const [childItems, setChildItems] = useState<WorkItemLite[]>([]);
 
   const { push } = useNavigation();
 
@@ -138,16 +140,18 @@ export default function WorkItemDetailsView({
     console.log("[WIDetails] fetchRelatedItems start");
     setIsLoadingRelations(true);
     try {
-      const { parent, siblings, related } = await getRelatedWorkItems(
+      const { parent, siblings, related, children } = await getRelatedWorkItems(
         workItem.id,
       );
       setParentItem(parent);
       setSiblingItems(siblings);
       setRelatedItems(related);
+      setChildItems(children);
       console.log("[WIDetails] relations", {
         parent: parent?.id,
         siblings: siblings.length,
         related: related.length,
+        children: children.length,
       });
     } catch (e) {
       console.log("Failed to fetch related items:")
@@ -179,7 +183,7 @@ export default function WorkItemDetailsView({
     if (!workItem) return;
 
     try {
-      const { parent, siblings, related } = await getRelatedWorkItems(
+      const { parent, siblings, related, children } = await getRelatedWorkItems(
         workItem.id,
       );
 
@@ -208,6 +212,14 @@ export default function WorkItemDetailsView({
         related.forEach((r) => {
           const rDesc = cleanDescription(r.description);
           lines.push(`- #${r.id}: ${r.title}${rDesc ? `\n  ${rDesc}` : ""}`);
+        });
+      }
+
+      if (children.length) {
+        lines.push("Children:");
+        children.forEach((c) => {
+          const cDesc = cleanDescription(c.description);
+          lines.push(`- #${c.id}: ${c.title}${cDesc ? `\n  ${cDesc}` : ""}`);
         });
       }
 
@@ -590,6 +602,15 @@ export default function WorkItemDetailsView({
         });
         lines.push("");
       }
+      // Children
+      if (childItems.length) {
+        lines.push("Children:");
+        childItems.forEach((c) => {
+          const cIcon = getWorkItemTypeIcon((c as any).type || "");
+          lines.push(`- ${cIcon} ${makeLink(c.id, c.title, (c as any).teamProject)}${(c as any).state ? ` • ${(c as any).state}` : ""}`);
+        });
+        lines.push("");
+      }
       // Related
       if (relatedItems.length) {
         lines.push("Related:");
@@ -702,7 +723,7 @@ export default function WorkItemDetailsView({
               <>
                 {existingPR ? (
                   <Action
-                    title="Open Pull Request"
+                    title="View Pull Request"
                     onAction={handleOpenExistingPR}
                     icon={Icon.Eye}
                     shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
@@ -733,7 +754,29 @@ export default function WorkItemDetailsView({
                   icon={Icon.Clipboard}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
                 />
-                {(!!parentItem || siblingItems.length > 0 || relatedItems.length > 0) && (
+                {(() => {
+                  const type = workItem.fields["System.WorkItemType"].toLowerCase();
+                  const isStory = type === "user story" || type === "product backlog item" || type === "pbi";
+                  return isStory ? (
+                    <Action
+                      title="Link to Feature…"
+                      icon={Icon.Link}
+                      shortcut={{ modifiers: ["cmd", "shift"], key: "l" }}
+                      onAction={() =>
+                        push(
+                          <LinkUserStoryToFeature
+                            workItemId={workItem.id}
+                            onLinked={() => {
+                              fetchRelatedItems();
+                              fetchWorkItemDetails();
+                            }}
+                          />,
+                        )
+                      }
+                    />
+                  ) : null;
+                })()}
+                {(!!parentItem || siblingItems.length > 0 || relatedItems.length > 0 || childItems.length > 0) && (
                   <Action
                     title="Browse Related Items"
                     icon={Icon.List}
@@ -744,6 +787,7 @@ export default function WorkItemDetailsView({
                           parentItem={parentItem}
                           siblingItems={siblingItems}
                           relatedItems={relatedItems}
+                          childItems={childItems}
                         />,
                       )
                     }
@@ -800,10 +844,12 @@ function RelatedItemsList({
   parentItem,
   siblingItems,
   relatedItems,
+  childItems,
 }: {
   parentItem: { id: number; title: string } | null;
   siblingItems: { id: number; title: string }[];
   relatedItems: { id: number; title: string }[];
+  childItems: { id: number; title: string }[];
 }) {
   const { push } = useNavigation();
 
@@ -814,6 +860,7 @@ function RelatedItemsList({
   if (parentItem) items.push({ id: parentItem.id, title: parentItem.title, section: "Parent" });
   siblingItems.forEach((s) => items.push({ id: s.id, title: s.title, section: "Siblings" }));
   relatedItems.forEach((r) => items.push({ id: r.id, title: r.title, section: "Related" }));
+  childItems.forEach((c) => items.push({ id: c.id, title: c.title, section: "Children" }));
 
   return (
     <List searchBarPlaceholder="Filter related work items...">
@@ -870,6 +917,27 @@ function RelatedItemsList({
                     title="Open Work Item"
                     icon={Icon.Eye}
                     onAction={() => open(r.id, r.title)}
+                  />
+                </ActionPanel>
+              }
+            />
+          ))}
+        </List.Section>
+      )}
+
+      {childItems.length > 0 && (
+        <List.Section title="Children">
+          {childItems.map((c) => (
+            <List.Item
+              key={`c-${c.id}`}
+              title={`#${c.id}: ${c.title || "Untitled"}`}
+              icon={Icon.ArrowDown}
+              actions={
+                <ActionPanel>
+                  <Action
+                    title="Open Work Item"
+                    icon={Icon.Eye}
+                    onAction={() => open(c.id, c.title)}
                   />
                 </ActionPanel>
               }
