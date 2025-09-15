@@ -63,7 +63,7 @@ export default function Command() {
       // WIQL query to get backlog items (Product Backlog Items, User Stories, Features, Epics)
       // Order by StackRank (backlog priority) and then by creation date
       const wiql =
-        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.StackRank] ASC, [System.CreatedDate] DESC";
+        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' AND [System.State] <> 'Resolved' ORDER BY [Microsoft.VSTS.Common.StackRank] ASC, [System.CreatedDate] DESC";
       const { stdout: queryResult } = await runAz([
         "boards",
         "query",
@@ -130,7 +130,7 @@ export default function Command() {
       // WIQL query to get recently created work items (last 30 days)
       // Order by creation date (newest first)
       const wiqlRecent =
-        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.CreatedDate] > @Today - 30 ORDER BY [System.CreatedDate] DESC";
+        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority], [Microsoft.VSTS.Common.StackRank] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item', 'User Story', 'Feature', 'Epic', 'Bug', 'Task') AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' AND [System.State] <> 'Resolved' AND [System.CreatedDate] > @Today - 30 ORDER BY [System.CreatedDate] DESC";
       const { stdout: queryResult } = await runAz([
         "boards",
         "query",

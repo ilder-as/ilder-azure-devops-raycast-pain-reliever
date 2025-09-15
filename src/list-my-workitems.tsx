@@ -52,7 +52,7 @@ export default function Command() {
 
       // Use @Me macro to find work items assigned to current user
       const wiql =
-        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' ORDER BY [Microsoft.VSTS.Common.Priority] ASC, [System.ChangedDate] DESC";
+        "SELECT [System.Id], [System.Title], [System.WorkItemType], [System.State], [System.AssignedTo], [System.TeamProject], [System.CreatedDate], [System.ChangedDate], [Microsoft.VSTS.Common.Priority] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] <> 'Closed' AND [System.State] <> 'Removed' AND [System.State] <> 'Done' AND [System.State] <> 'Resolved' ORDER BY [Microsoft.VSTS.Common.Priority] ASC, [System.ChangedDate] DESC";
       const { stdout: queryResult } = await runAz([
         "boards",
         "query",
