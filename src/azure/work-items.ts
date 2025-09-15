@@ -12,6 +12,7 @@ export interface WorkItemLite {
   description?: string;
   type?: string;
   teamProject?: string;
+  state?: string;
 }
 
 interface RelationItem {
@@ -41,6 +42,7 @@ export async function getWorkItemLite(id: number): Promise<WorkItemLite | null> 
       description: json.fields?.["System.Description"],
       type: json.fields?.["System.WorkItemType"],
       teamProject: json.fields?.["System.TeamProject"],
+      state: json.fields?.["System.State"],
     };
   } catch (e) {
     console.error("Failed to fetch WorkItemLite", id, e);

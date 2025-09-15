@@ -574,20 +574,30 @@ export default function WorkItemDetailsView({
       markdown += `Loading related work items...\n`;
     } else {
       const lines: string[] = [];
+      // Parent section on its own line
       if (parentItem) {
-        lines.push(`Parent: ${makeLink(parentItem.id, parentItem.title, (parentItem as any).teamProject)}`);
+        const pIcon = getWorkItemTypeIcon(parentItem.type || "");
+        lines.push(`Parent:`);
+        lines.push(`- ${pIcon} ${makeLink(parentItem.id, parentItem.title, (parentItem as any).teamProject)}${(parentItem as any).state ? ` • ${(parentItem as any).state}` : ""}`);
+        lines.push(""); // blank line
       }
+      // Siblings
       if (siblingItems.length) {
         lines.push("Siblings:");
-        siblingItems.forEach((s) =>
-          lines.push(`- ${makeLink(s.id, s.title, (s as any).teamProject)}`),
-        );
+        siblingItems.forEach((s) => {
+          const sIcon = getWorkItemTypeIcon((s as any).type || "");
+          lines.push(`- ${sIcon} ${makeLink(s.id, s.title, (s as any).teamProject)}${(s as any).state ? ` • ${(s as any).state}` : ""}`);
+        });
+        lines.push("");
       }
+      // Related
       if (relatedItems.length) {
         lines.push("Related:");
-        relatedItems.forEach((r) =>
-          lines.push(`- ${makeLink(r.id, r.title, (r as any).teamProject)}`),
-        );
+        relatedItems.forEach((r) => {
+          const rIcon = getWorkItemTypeIcon((r as any).type || "");
+          lines.push(`- ${rIcon} ${makeLink(r.id, r.title, (r as any).teamProject)}${(r as any).state ? ` • ${(r as any).state}` : ""}`);
+        });
+        lines.push("");
       }
       if (lines.length) {
         markdown += lines.join("\n") + "\n";
