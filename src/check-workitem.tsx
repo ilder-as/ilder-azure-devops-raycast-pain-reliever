@@ -9,6 +9,7 @@ import {
 import { useState, useEffect } from "react";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { convertToBranchName, fetchWorkItemDetails } from "./azure-devops-utils";
 
 const execAsync = promisify(exec);
 
@@ -195,16 +196,3 @@ export default function Command() {
   );
 }
 
-function convertToBranchName(
-  number: string,
-  description: string,
-  prefix: string,
-): string {
-  const combined = `${number} ${description}`;
-  const slug = combined
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return `${prefix}${slug}`;
-}

@@ -12,6 +12,7 @@ import { useState, useEffect } from "react";
 import { exec } from "child_process";
 import { promisify } from "util";
 import PullRequestDetailsView from "./PullRequestDetailsView";
+import { getCurrentUser } from "./azure-devops-utils";
 
 const execAsync = promisify(exec);
 
@@ -62,18 +63,6 @@ export default function Command() {
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
   const [currentUser, setCurrentUser] = useState<string>("");
 
-  async function getCurrentUser() {
-    try {
-      const azCommand = "/opt/homebrew/bin/az";
-      const { stdout: userEmail } = await execAsync(
-        `${azCommand} account show --query user.name -o tsv`,
-      );
-      return userEmail.trim();
-    } catch (error) {
-      console.error("Failed to get current user:", error);
-      return null;
-    }
-  }
 
   async function fetchPullRequests() {
     setIsLoading(true);

@@ -13,6 +13,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import WorkItemDetailsView from "./WorkItemDetailsView";
+import { getCurrentUser, convertToBranchName } from "./azure-devops-utils";
 
 const execAsync = promisify(exec);
 
@@ -48,21 +49,6 @@ export default function Command() {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [currentUser, setCurrentUser] = useState<string>("");
 
-  async function getCurrentUser() {
-    try {
-      const azCommand = "/opt/homebrew/bin/az";
-
-      // Try to get the user in different formats to see which one works
-      const { stdout: userEmail } = await execAsync(
-        `${azCommand} account show --query user.name -o tsv`,
-      );
-
-      return userEmail.trim();
-    } catch (error) {
-      console.error("Failed to get current user:", error);
-      return null;
-    }
-  }
 
   async function fetchMyWorkItems() {
     setIsLoading(true);
@@ -206,19 +192,6 @@ export default function Command() {
     return date.toLocaleDateString();
   }
 
-  function convertToBranchName(
-    number: string,
-    description: string,
-    prefix: string,
-  ): string {
-    const combined = `${number} ${description}`;
-    const slug = combined
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    return `${prefix}${slug}`;
-  }
 
   useEffect(() => {
     fetchMyWorkItems();

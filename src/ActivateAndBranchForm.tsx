@@ -9,6 +9,7 @@ import {
 import { useState } from "react";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { getCurrentUser, convertToBranchName, fetchWorkItemDetails } from "./azure-devops-utils";
 
 const execAsync = promisify(exec);
 
@@ -50,18 +51,6 @@ export default function ActivateAndBranchForm({
   const [branchUrl, setBranchUrl] = useState<string>("");
   const [workItemUrl, setWorkItemUrl] = useState<string>("");
 
-  async function getCurrentUser() {
-    try {
-      const azCommand = "/opt/homebrew/bin/az";
-      const { stdout } = await execAsync(
-        `${azCommand} account show --query user.name -o tsv`,
-      );
-      return stdout.trim();
-    } catch (error) {
-      console.error("Failed to get current user:", error);
-      return null;
-    }
-  }
 
   async function activateAndBranch(workItemId: string) {
     if (!workItemId) {
@@ -246,19 +235,6 @@ export default function ActivateAndBranchForm({
     }
   }
 
-  function convertToBranchName(
-    number: string,
-    description: string,
-    prefix: string,
-  ): string {
-    const combined = `${number} ${description}`;
-    const slug = combined
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    return `${prefix}${slug}`;
-  }
 
   return (
     <Form

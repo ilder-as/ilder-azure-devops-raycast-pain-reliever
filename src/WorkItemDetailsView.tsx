@@ -13,7 +13,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import PullRequestDetailsView from "./PullRequestDetailsView";
-import { activateAndCreatePR } from "./azure-devops-utils";
+import { activateAndCreatePR, convertToBranchName } from "./azure-devops-utils";
 
 const execAsync = promisify(exec);
 
@@ -245,19 +245,6 @@ export default function WorkItemDetailsView({
     return date.toLocaleString();
   }
 
-  function convertToBranchName(
-    number: string,
-    description: string,
-    prefix: string,
-  ): string {
-    const combined = `${number} ${description}`;
-    const slug = combined
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    return `${prefix}${slug}`;
-  }
 
   function generateMarkdown(): string {
     if (!workItem) return "Loading work item details...";

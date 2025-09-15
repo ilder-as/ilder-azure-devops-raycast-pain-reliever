@@ -13,6 +13,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import WorkItemDetailsView from "./WorkItemDetailsView";
+import { convertToBranchName } from "./azure-devops-utils";
 
 const execAsync = promisify(exec);
 
@@ -267,19 +268,6 @@ export default function Command() {
     return date.toLocaleDateString();
   }
 
-  function convertToBranchName(
-    number: string,
-    description: string,
-    prefix: string,
-  ): string {
-    const combined = `${number} ${description}`;
-    const slug = combined
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    return `${prefix}${slug}`;
-  }
 
   function getPaginationTitle(): string {
     const baseTitle = viewMode === "recent" ? "Recently Created" : "Backlog";
