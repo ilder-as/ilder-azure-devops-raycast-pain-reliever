@@ -1,4 +1,4 @@
-import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, useNavigation } from "@raycast/api";
+import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, useNavigation, Clipboard } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
@@ -71,6 +71,18 @@ export default function WorkItemDetailsView({
 
   const { push } = useNavigation();
 
+  interface WorkItemLite {
+    id: number;
+    title: string;
+    description?: string;
+    type?: string;
+  }
+
+  interface RelationItem {
+    rel: string;
+    url: string;
+  }
+
   async function fetchWorkItemDetails() {
     setIsLoading(true);
     setError(null);
@@ -101,6 +113,170 @@ export default function WorkItemDetailsView({
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  // Fetch minimal details for building AI context
+  async function fetchWorkItemLite(id: number): Promise<WorkItemLite | null> {
+    try {
+      const preferences = getPreferenceValues<Preferences>();
+      const { stdout } = await runAz([
+        "boards",
+        "work-item",
+        "show",
+        "--id",
+        String(id),
+        "--output",
+        "json",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+      ]);
+      const json = JSON.parse(stdout);
+      return {
+        id,
+        title: json.fields?.["System.Title"] || "",
+        description: json.fields?.["System.Description"],
+        type: json.fields?.["System.WorkItemType"],
+      };
+    } catch (e) {
+      console.error("Failed to fetch WorkItemLite", id, e);
+      return null;
+    }
+  }
+
+  function cleanDescription(desc?: string): string {
+    if (!desc) return "";
+    return desc
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/\s+$/g, "")
+      .trim();
+  }
+
+  async function handleCopyContextForAI() {
+    if (!workItem) return;
+
+    try {
+      const preferences = getPreferenceValues<Preferences>();
+
+      // Fetch work item with relations expanded
+      const { stdout: relStdout } = await runAz([
+        "boards",
+        "work-item",
+        "show",
+        "--id",
+        String(workItem.id),
+        "--output",
+        "json",
+        "--expand",
+        "relations",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+      ]);
+      const withRels = JSON.parse(relStdout);
+      const relations: RelationItem[] = withRels.relations || [];
+
+      // Identify parent (Hierarchy-Reverse)
+      const parentRel = relations.find((r) =>
+        r.rel?.toLowerCase().includes("hierarchy-reverse"),
+      );
+
+      let parent: WorkItemLite | null = null;
+      let siblings: WorkItemLite[] = [];
+      let relatedItems: WorkItemLite[] = [];
+
+      const extractId = (url: string): number | null => {
+        const m = url.match(/workItems\/(\d+)/i);
+        return m ? Number(m[1]) : null;
+      };
+
+      if (parentRel) {
+        const parentId = extractId(parentRel.url);
+        if (parentId) {
+          parent = await fetchWorkItemLite(parentId);
+          // Find siblings by listing parent's children (Hierarchy-Forward)
+          const { stdout: parentRelsStdout } = await runAz([
+            "boards",
+            "work-item",
+            "show",
+            "--id",
+            String(parentId),
+            "--output",
+            "json",
+            "--expand",
+            "relations",
+            ...(preferences.azureOrganization
+              ? ["--organization", preferences.azureOrganization]
+              : []),
+          ]);
+          const parentWithRels = JSON.parse(parentRelsStdout);
+          const parentRels: RelationItem[] = parentWithRels.relations || [];
+          const childIds = parentRels
+            .filter((r) => r.rel?.toLowerCase().includes("hierarchy-forward"))
+            .map((r) => extractId(r.url))
+            .filter((id): id is number => !!id && id !== workItem.id)
+            .slice(0, 10);
+          if (childIds.length) {
+            const fetched = await Promise.all(childIds.map((id) => fetchWorkItemLite(id)));
+            siblings = fetched.filter((w): w is WorkItemLite => !!w);
+          }
+        }
+      }
+
+      // Collect directly related (System.LinkTypes.Related)
+      const relatedIds = relations
+        .filter((r) => r.rel?.toLowerCase().includes("system.linktypes.related"))
+        .map((r) => extractId(r.url))
+        .filter((id): id is number => !!id)
+        .slice(0, 10);
+      if (relatedIds.length) {
+        const fetched = await Promise.all(relatedIds.map((id) => fetchWorkItemLite(id)));
+        relatedItems = fetched.filter((w): w is WorkItemLite => !!w);
+      }
+
+      const selfTitle = workItem.fields["System.Title"];
+      const selfDesc = cleanDescription(workItem.fields["System.Description"]);
+
+      let context = `#${workItem.id}: ${selfTitle}`;
+      if (selfDesc) {
+        context += `\n\nDescription:\n${selfDesc}`;
+      }
+
+      const lines: string[] = [];
+      if (parent) {
+        const pDesc = cleanDescription(parent.description);
+        lines.push(`Parent #${parent.id}: ${parent.title}${pDesc ? `\n${pDesc}` : ""}`);
+      }
+      if (siblings.length) {
+        lines.push("Siblings:");
+        siblings.forEach((s) => {
+          const sDesc = cleanDescription(s.description);
+          lines.push(`- #${s.id}: ${s.title}${sDesc ? `\n  ${sDesc}` : ""}`);
+        });
+      }
+      if (relatedItems.length) {
+        lines.push("Related:");
+        relatedItems.forEach((r) => {
+          const rDesc = cleanDescription(r.description);
+          lines.push(`- #${r.id}: ${r.title}${rDesc ? `\n  ${rDesc}` : ""}`);
+        });
+      }
+
+      if (lines.length) {
+        context += `\n\nThis is related information:\n${lines.join("\n\n")}`;
+      }
+
+      await Clipboard.copy(context);
+      await showToast(Toast.Style.Success, "Copied AI context");
+    } catch (e) {
+      console.error("Failed to build AI context", e);
+      await showToast(Toast.Style.Failure, "Error", "Could not copy AI context");
     }
   }
 
@@ -516,6 +692,12 @@ export default function WorkItemDetailsView({
                   }
                   icon={Icon.Rocket}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+                />
+                <Action
+                  title="Copy Context for AI"
+                  onAction={handleCopyContextForAI}
+                  icon={Icon.Clipboard}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
                 />
               </>
             )}
