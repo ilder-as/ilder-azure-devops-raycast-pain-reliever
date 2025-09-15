@@ -1,9 +1,10 @@
-import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, useNavigation, Clipboard } from "@raycast/api";
+import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, useNavigation, Clipboard, List } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 import { activateAndCreatePR, convertToBranchName, findExistingBranchesForWorkItem } from "./azure-devops-utils";
+import { getRelatedWorkItems, WorkItemLite } from "./azure/work-items";
 
 
 interface Preferences {
@@ -57,6 +58,7 @@ export default function WorkItemDetailsView({
   workItemId,
   initialTitle,
 }: Props) {
+  console.log("[WIDetails] render start", { workItemId });
   const [isLoading, setIsLoading] = useState(true);
   const [workItem, setWorkItem] = useState<WorkItemDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,22 +71,17 @@ export default function WorkItemDetailsView({
   } | null>(null);
   const [isCheckingPR, setIsCheckingPR] = useState(false);
   const [relatedBranches, setRelatedBranches] = useState<string[]>([]);
+  const [isLoadingRelations, setIsLoadingRelations] = useState(false);
+  const [parentItem, setParentItem] = useState<WorkItemLite | null>(null);
+  const [siblingItems, setSiblingItems] = useState<WorkItemLite[]>([]);
+  const [relatedItems, setRelatedItems] = useState<WorkItemLite[]>([]);
 
   const { push } = useNavigation();
 
-  interface WorkItemLite {
-    id: number;
-    title: string;
-    description?: string;
-    type?: string;
-  }
-
-  interface RelationItem {
-    rel: string;
-    url: string;
-  }
+  // WorkItemLite imported from utils
 
   async function fetchWorkItemDetails() {
+    console.log("[WIDetails] fetchWorkItemDetails start", { workItemId });
     setIsLoading(true);
     setError(null);
 
@@ -105,7 +102,10 @@ export default function WorkItemDetailsView({
           : []),
       ]);
       const workItemData: WorkItemDetails = JSON.parse(workItemJson);
-
+      console.log("[WIDetails] fetched", {
+        id: workItemData?.id,
+        title: workItemData?.fields?.["System.Title"],
+      });
       setWorkItem(workItemData);
     } catch (error) {
       const errorMessage = "Failed to fetch work item details";
@@ -113,6 +113,7 @@ export default function WorkItemDetailsView({
       await showToast(Toast.Style.Failure, "Error", errorMessage);
       console.error(error);
     } finally {
+      console.log("[WIDetails] fetchWorkItemDetails end");
       setIsLoading(false);
     }
   }
@@ -125,40 +126,41 @@ export default function WorkItemDetailsView({
         workItem.fields["System.Title"],
       );
       setRelatedBranches(branches);
+      console.log("[WIDetails] related branches", branches);
     } catch (e) {
       console.log("Could not check branches:", e);
       setRelatedBranches([]);
     }
   }
 
-  // Fetch minimal details for building AI context
-  async function fetchWorkItemLite(id: number): Promise<WorkItemLite | null> {
+  async function fetchRelatedItems() {
+    if (!workItem) return;
+    console.log("[WIDetails] fetchRelatedItems start");
+    setIsLoadingRelations(true);
     try {
-      const preferences = getPreferenceValues<Preferences>();
-      const { stdout } = await runAz([
-        "boards",
-        "work-item",
-        "show",
-        "--id",
-        String(id),
-        "--output",
-        "json",
-        ...(preferences.azureOrganization
-          ? ["--organization", preferences.azureOrganization]
-          : []),
-      ]);
-      const json = JSON.parse(stdout);
-      return {
-        id,
-        title: json.fields?.["System.Title"] || "",
-        description: json.fields?.["System.Description"],
-        type: json.fields?.["System.WorkItemType"],
-      };
+      const { parent, siblings, related } = await getRelatedWorkItems(
+        workItem.id,
+      );
+      setParentItem(parent);
+      setSiblingItems(siblings);
+      setRelatedItems(related);
+      console.log("[WIDetails] relations", {
+        parent: parent?.id,
+        siblings: siblings.length,
+        related: related.length,
+      });
     } catch (e) {
-      console.error("Failed to fetch WorkItemLite", id, e);
-      return null;
+      console.log("Failed to fetch related items:")
+      setParentItem(null);
+      setSiblingItems([]);
+      setRelatedItems([]);
+    } finally {
+      console.log("[WIDetails] fetchRelatedItems end");
+      setIsLoadingRelations(false);
     }
   }
+
+  // fetchWorkItemLite moved to utils
 
   function cleanDescription(desc?: string): string {
     if (!desc) return "";
@@ -177,83 +179,9 @@ export default function WorkItemDetailsView({
     if (!workItem) return;
 
     try {
-      const preferences = getPreferenceValues<Preferences>();
-
-      // Fetch work item with relations expanded
-      const { stdout: relStdout } = await runAz([
-        "boards",
-        "work-item",
-        "show",
-        "--id",
-        String(workItem.id),
-        "--output",
-        "json",
-        "--expand",
-        "relations",
-        ...(preferences.azureOrganization
-          ? ["--organization", preferences.azureOrganization]
-          : []),
-      ]);
-      const withRels = JSON.parse(relStdout);
-      const relations: RelationItem[] = withRels.relations || [];
-
-      // Identify parent (Hierarchy-Reverse)
-      const parentRel = relations.find((r) =>
-        r.rel?.toLowerCase().includes("hierarchy-reverse"),
+      const { parent, siblings, related } = await getRelatedWorkItems(
+        workItem.id,
       );
-
-      let parent: WorkItemLite | null = null;
-      let siblings: WorkItemLite[] = [];
-      let relatedItems: WorkItemLite[] = [];
-
-      const extractId = (url: string): number | null => {
-        const m = url.match(/workItems\/(\d+)/i);
-        return m ? Number(m[1]) : null;
-      };
-
-      if (parentRel) {
-        const parentId = extractId(parentRel.url);
-        if (parentId) {
-          parent = await fetchWorkItemLite(parentId);
-          // Find siblings by listing parent's children (Hierarchy-Forward)
-          const { stdout: parentRelsStdout } = await runAz([
-            "boards",
-            "work-item",
-            "show",
-            "--id",
-            String(parentId),
-            "--output",
-            "json",
-            "--expand",
-            "relations",
-            ...(preferences.azureOrganization
-              ? ["--organization", preferences.azureOrganization]
-              : []),
-          ]);
-          const parentWithRels = JSON.parse(parentRelsStdout);
-          const parentRels: RelationItem[] = parentWithRels.relations || [];
-          const childIds = parentRels
-            .filter((r) => r.rel?.toLowerCase().includes("hierarchy-forward"))
-            .map((r) => extractId(r.url))
-            .filter((id): id is number => !!id && id !== workItem.id)
-            .slice(0, 10);
-          if (childIds.length) {
-            const fetched = await Promise.all(childIds.map((id) => fetchWorkItemLite(id)));
-            siblings = fetched.filter((w): w is WorkItemLite => !!w);
-          }
-        }
-      }
-
-      // Collect directly related (System.LinkTypes.Related)
-      const relatedIds = relations
-        .filter((r) => r.rel?.toLowerCase().includes("system.linktypes.related"))
-        .map((r) => extractId(r.url))
-        .filter((id): id is number => !!id)
-        .slice(0, 10);
-      if (relatedIds.length) {
-        const fetched = await Promise.all(relatedIds.map((id) => fetchWorkItemLite(id)));
-        relatedItems = fetched.filter((w): w is WorkItemLite => !!w);
-      }
 
       const selfTitle = workItem.fields["System.Title"];
       const selfDesc = cleanDescription(workItem.fields["System.Description"]);
@@ -275,9 +203,9 @@ export default function WorkItemDetailsView({
           lines.push(`- #${s.id}: ${s.title}${sDesc ? `\n  ${sDesc}` : ""}`);
         });
       }
-      if (relatedItems.length) {
+      if (related.length) {
         lines.push("Related:");
-        relatedItems.forEach((r) => {
+        related.forEach((r) => {
           const rDesc = cleanDescription(r.description);
           lines.push(`- #${r.id}: ${r.title}${rDesc ? `\n  ${rDesc}` : ""}`);
         });
@@ -296,6 +224,7 @@ export default function WorkItemDetailsView({
   }
 
   async function checkForExistingPR() {
+    console.log("[WIDetails] checkForExistingPR start");
     if (!workItem) return;
 
     setIsCheckingPR(true);
@@ -357,6 +286,7 @@ export default function WorkItemDetailsView({
                 preferences.azureProject ||
                 "Unknown",
             });
+            console.log("[WIDetails] found PR", pr.pullRequestId);
             return; // Found a PR; we can stop checking further
           }
         } catch (e) {
@@ -372,6 +302,7 @@ export default function WorkItemDetailsView({
       console.log("Could not check for existing PRs:", error);
       setExistingPR(null);
     } finally {
+      console.log("[WIDetails] checkForExistingPR end");
       setIsCheckingPR(false);
     }
   }
@@ -457,6 +388,14 @@ export default function WorkItemDetailsView({
 
 
   function generateMarkdown(): string {
+    try {
+      console.log("[WIDetails] generateMarkdown start", {
+        hasWorkItem: !!workItem,
+        isLoading,
+        isCheckingPR,
+        isLoadingRelations,
+      });
+    } catch {}
     if (!workItem) return "Loading work item details...";
 
     const preferences = getPreferenceValues<Preferences>();
@@ -619,6 +558,45 @@ export default function WorkItemDetailsView({
       markdown += `**Branch:** \`${branchName}\`\n\n`;
     }
 
+    // Related items section (loaded asynchronously) with clickable links
+    markdown += `---\n\n`;
+    const org = getPreferenceValues<Preferences>().azureOrganization;
+    const currentProject = workItem.fields["System.TeamProject"];
+    const makeLink = (id: number, title: string, teamProject?: string) => {
+      if (!org) return `#${id} ${title}`;
+      const project = teamProject || currentProject;
+      const url = `${org}/${encodeURIComponent(project)}/_workitems/edit/${id}`;
+      const safeTitle = title || "Untitled";
+      return `[#${id} ${safeTitle}](${url})`;
+    };
+
+    if (isLoadingRelations) {
+      markdown += `Loading related work items...\n`;
+    } else {
+      const lines: string[] = [];
+      if (parentItem) {
+        lines.push(`Parent: ${makeLink(parentItem.id, parentItem.title, (parentItem as any).teamProject)}`);
+      }
+      if (siblingItems.length) {
+        lines.push("Siblings:");
+        siblingItems.forEach((s) =>
+          lines.push(`- ${makeLink(s.id, s.title, (s as any).teamProject)}`),
+        );
+      }
+      if (relatedItems.length) {
+        lines.push("Related:");
+        relatedItems.forEach((r) =>
+          lines.push(`- ${makeLink(r.id, r.title, (r as any).teamProject)}`),
+        );
+      }
+      if (lines.length) {
+        markdown += lines.join("\n") + "\n";
+      } else {
+        markdown += "No related items found.\n";
+      }
+    }
+
+    console.log("[WIDetails] generateMarkdown end", { length: markdown.length });
     return markdown;
   }
 
@@ -666,6 +644,12 @@ export default function WorkItemDetailsView({
   useEffect(() => {
     if (workItem) {
       checkForExistingPR();
+    }
+  }, [workItem]);
+
+  useEffect(() => {
+    if (workItem) {
+      fetchRelatedItems();
     }
   }, [workItem]);
 
@@ -721,15 +705,17 @@ export default function WorkItemDetailsView({
                     shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
                   />
                 )}
-                <Action.Push
+                <Action
                   title="Activate & Create Branch"
-                  target={
-                    <ActivateAndBranchForm
-                      initialWorkItemId={workItem.id.toString()}
-                    />
-                  }
                   icon={Icon.Rocket}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+                  onAction={() =>
+                    push(
+                      <ActivateAndBranchForm
+                        initialWorkItemId={workItem.id.toString()}
+                      />,
+                    )
+                  }
                 />
                 <Action
                   title="Copy Context for AI"
@@ -737,9 +723,25 @@ export default function WorkItemDetailsView({
                   icon={Icon.Clipboard}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
                 />
+                {(!!parentItem || siblingItems.length > 0 || relatedItems.length > 0) && (
+                  <Action
+                    title="Browse Related Items"
+                    icon={Icon.List}
+                    shortcut={{ modifiers: ["cmd"], key: "l" }}
+                    onAction={() =>
+                      push(
+                        <RelatedItemsList
+                          parentItem={parentItem}
+                          siblingItems={siblingItems}
+                          relatedItems={relatedItems}
+                        />,
+                      )
+                    }
+                  />
+                )}
               </>
             )}
-            {workItemUrl && (
+            {Boolean(workItemUrl) && (
               <Action.OpenInBrowser
                 title="Open in Azure DevOps"
                 url={workItemUrl}
@@ -781,5 +783,90 @@ export default function WorkItemDetailsView({
         </ActionPanel>
       }
     />
+  );
+}
+
+function RelatedItemsList({
+  parentItem,
+  siblingItems,
+  relatedItems,
+}: {
+  parentItem: { id: number; title: string } | null;
+  siblingItems: { id: number; title: string }[];
+  relatedItems: { id: number; title: string }[];
+}) {
+  const { push } = useNavigation();
+
+  const open = (id: number, title?: string) =>
+    push(<WorkItemDetailsView workItemId={String(id)} initialTitle={title} />);
+
+  const items: Array<{ id: number; title: string; section: string }> = [];
+  if (parentItem) items.push({ id: parentItem.id, title: parentItem.title, section: "Parent" });
+  siblingItems.forEach((s) => items.push({ id: s.id, title: s.title, section: "Siblings" }));
+  relatedItems.forEach((r) => items.push({ id: r.id, title: r.title, section: "Related" }));
+
+  return (
+    <List searchBarPlaceholder="Filter related work items...">
+      {parentItem && (
+        <List.Section title="Parent">
+          <List.Item
+            key={`p-${parentItem.id}`}
+            title={`#${parentItem.id}: ${parentItem.title || "Untitled"}`}
+            icon={Icon.ArrowUp}
+            actions={
+              <ActionPanel>
+                <Action
+                  title="Open Work Item"
+                  icon={Icon.Eye}
+                  onAction={() => open(parentItem.id, parentItem.title)}
+                />
+              </ActionPanel>
+            }
+          />
+        </List.Section>
+      )}
+
+      {siblingItems.length > 0 && (
+        <List.Section title="Siblings">
+          {siblingItems.map((s) => (
+            <List.Item
+              key={`s-${s.id}`}
+              title={`#${s.id}: ${s.title || "Untitled"}`}
+              icon={Icon.ArrowRight}
+              actions={
+                <ActionPanel>
+                  <Action
+                    title="Open Work Item"
+                    icon={Icon.Eye}
+                    onAction={() => open(s.id, s.title)}
+                  />
+                </ActionPanel>
+              }
+            />
+          ))}
+        </List.Section>
+      )}
+
+      {relatedItems.length > 0 && (
+        <List.Section title="Related">
+          {relatedItems.map((r) => (
+            <List.Item
+              key={`r-${r.id}`}
+              title={`#${r.id}: ${r.title || "Untitled"}`}
+              icon={Icon.Link}
+              actions={
+                <ActionPanel>
+                  <Action
+                    title="Open Work Item"
+                    icon={Icon.Eye}
+                    onAction={() => open(r.id, r.title)}
+                  />
+                </ActionPanel>
+              }
+            />
+          ))}
+        </List.Section>
+      )}
+    </List>
   );
 }
