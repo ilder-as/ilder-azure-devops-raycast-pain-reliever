@@ -1,5 +1,8 @@
 import { getPreferenceValues, showToast, Toast } from "@raycast/api";
 import { runAz } from "./az-cli";
+import { promises as fs } from "fs";
+import os from "os";
+import path from "path";
 
 interface Preferences {
   branchPrefix: string;
@@ -15,6 +18,20 @@ interface WorkItemDetails {
   type: string;
   assignedTo?: string;
   state: string;
+}
+
+export interface WorkItemLite {
+  id: number;
+  title: string;
+  description?: string;
+  type?: string;
+  teamProject?: string;
+  state?: string;
+}
+
+interface RelationItem {
+  rel: string;
+  url: string;
 }
 
 interface PullRequestResult {
@@ -435,4 +452,326 @@ export async function activateAndCreatePR(workItemId: string): Promise<{
   );
 
   return { success: true, prResult, branchName };
+}
+
+// ========== Work Item Related Functions ==========
+
+export async function getWorkItemLite(id: number): Promise<WorkItemLite | null> {
+  try {
+    const preferences = getPreferenceValues<Preferences>();
+    const { stdout } = await runAz([
+      "boards",
+      "work-item",
+      "show",
+      "--id",
+      String(id),
+      "--output",
+      "json",
+      ...(preferences.azureOrganization
+        ? ["--organization", preferences.azureOrganization]
+        : []),
+    ]);
+    const json = JSON.parse(stdout);
+    return {
+      id,
+      title: json.fields?.["System.Title"] || "Untitled",
+      description: json.fields?.["System.Description"],
+      type: json.fields?.["System.WorkItemType"],
+      teamProject: json.fields?.["System.TeamProject"],
+      state: json.fields?.["System.State"],
+    };
+  } catch (e) {
+    console.error("Failed to fetch WorkItemLite", id, e);
+    return null;
+  }
+}
+
+export async function getRelatedWorkItems(
+  workItemId: number,
+): Promise<{
+  parent: WorkItemLite | null;
+  siblings: WorkItemLite[];
+  related: WorkItemLite[];
+  children: WorkItemLite[];
+}> {
+  const preferences = getPreferenceValues<Preferences>();
+
+  const extractId = (url: string): number | null => {
+    const m = url.match(/workItems\/(\d+)/i);
+    return m ? Number(m[1]) : null;
+  };
+
+  let parent: WorkItemLite | null = null;
+  let siblings: WorkItemLite[] = [];
+  let relatedItems: WorkItemLite[] = [];
+  let children: WorkItemLite[] = [];
+
+  const { stdout: relStdout } = await runAz([
+    "boards",
+    "work-item",
+    "show",
+    "--id",
+    String(workItemId),
+    "--output",
+    "json",
+    "--expand",
+    "relations",
+    ...(preferences.azureOrganization
+      ? ["--organization", preferences.azureOrganization]
+      : []),
+  ]);
+  const withRels = JSON.parse(relStdout);
+  const relations: RelationItem[] = withRels.relations || [];
+
+  // Children of the current item (Hierarchy-Forward)
+  const childIds = relations
+    .filter((r) => r.rel?.toLowerCase().includes("hierarchy-forward"))
+    .map((r) => extractId(r.url))
+    .filter((id): id is number => !!id)
+    .slice(0, 25);
+  if (childIds.length) {
+    const fetched = await Promise.all(childIds.map((id) => getWorkItemLite(id)));
+    children = fetched.filter((w): w is WorkItemLite => !!w);
+  }
+
+  const parentRel = relations.find((r) =>
+    r.rel?.toLowerCase().includes("hierarchy-reverse"),
+  );
+  if (parentRel) {
+    const parentId = extractId(parentRel.url);
+    if (parentId) {
+      parent = await getWorkItemLite(parentId);
+      const { stdout: parentRelsStdout } = await runAz([
+        "boards",
+        "work-item",
+        "show",
+        "--id",
+        String(parentId),
+        "--output",
+        "json",
+        "--expand",
+        "relations",
+        ...(preferences.azureOrganization
+          ? ["--organization", preferences.azureOrganization]
+          : []),
+      ]);
+      const parentWithRels = JSON.parse(parentRelsStdout);
+      const parentRels: RelationItem[] = parentWithRels.relations || [];
+      const childIds = parentRels
+        .filter((r) => r.rel?.toLowerCase().includes("hierarchy-forward"))
+        .map((r) => extractId(r.url))
+        .filter((id): id is number => !!id && id !== workItemId)
+        .slice(0, 25);
+      if (childIds.length) {
+        const fetched = await Promise.all(childIds.map((id) => getWorkItemLite(id)));
+        siblings = fetched.filter((w): w is WorkItemLite => !!w);
+      }
+    }
+  }
+
+  const relatedIds = relations
+    .filter((r) => r.rel?.toLowerCase().includes("system.linktypes.related"))
+    .map((r) => extractId(r.url))
+    .filter((id): id is number => !!id)
+    .slice(0, 25);
+  if (relatedIds.length) {
+    const fetched = await Promise.all(relatedIds.map((id) => getWorkItemLite(id)));
+    relatedItems = fetched.filter((w): w is WorkItemLite => !!w);
+  }
+
+  return { parent, siblings, related: relatedItems, children };
+}
+
+export interface WorkItemComment {
+  id: number;
+  text: string;
+  createdBy: {
+    displayName: string;
+    uniqueName: string;
+  };
+  createdDate: string;
+  modifiedBy?: {
+    displayName: string;
+    uniqueName: string;
+  };
+  modifiedDate?: string;
+}
+
+export async function getWorkItemCommentsCount(workItemId: number): Promise<number | null> {
+  try {
+    const preferences = getPreferenceValues<Preferences>();
+    // Work item comments API requires project in the route
+    const project = preferences.azureProject || "WeDo"; // fallback to WeDo project
+    const route = `${project}/_apis/wit/workItems/${workItemId}/comments?api-version=7.1-preview.3`;
+    const { stdout } = await runAz([
+      "devops",
+      "invoke",
+      "--route",
+      route,
+      "--output",
+      "json",
+      ...(preferences.azureOrganization
+        ? ["--organization", preferences.azureOrganization]
+        : []),
+    ]);
+    const json = JSON.parse(stdout);
+    if (typeof json.totalCount === "number") return json.totalCount;
+    if (typeof json.count === "number" && Array.isArray(json.value)) {
+      // Fallback: if full list returned without totalCount, use length
+      return Number(json.count) || json.value.length || 0;
+    }
+    if (Array.isArray(json.value)) return json.value.length;
+    return 0;
+  } catch (e) {
+    console.error("Failed to get comments count for", workItemId, e);
+    return null;
+  }
+}
+
+export async function getWorkItemComments(workItemId: number): Promise<WorkItemComment[]> {
+  try {
+    const preferences = getPreferenceValues<Preferences>();
+    
+    // Work item comments API requires project in the route parameters
+    const project = preferences.azureProject || "WeDo"; // fallback to WeDo project
+    
+    console.log("[getWorkItemComments] Fetching comments for work item:", workItemId);
+    console.log("[getWorkItemComments] Using project:", project);
+    
+    const { stdout } = await runAz([
+      "devops",
+      "invoke",
+      "--area",
+      "wit",
+      "--resource",
+      "comments",
+      "--route-parameters",
+      `project=${project}`,
+      `workItemId=${workItemId}`,
+      "--api-version",
+      "6.0-preview",
+      "--output",
+      "json",
+      ...(preferences.azureOrganization
+        ? ["--organization", preferences.azureOrganization]
+        : []),
+    ]);
+    
+    const json = JSON.parse(stdout);
+    console.log("[getWorkItemComments] Raw API response:", JSON.stringify(json, null, 2));
+    
+    // The API returns comments in a "comments" array, not "value"
+    if (Array.isArray(json.comments)) {
+      console.log("[getWorkItemComments] Found", json.comments.length, "comments");
+      const comments = json.comments.map((comment: any) => {
+        console.log("[getWorkItemComments] Processing comment:", {
+          id: comment.id,
+          text: comment.text?.substring(0, 100) + "...",
+          createdBy: comment.createdBy?.displayName,
+          createdDate: comment.createdDate
+        });
+        
+        return {
+          id: comment.id || 0,
+          text: comment.text || "",
+          createdBy: {
+            displayName: comment.createdBy?.displayName || "Unknown",
+            uniqueName: comment.createdBy?.uniqueName || "",
+          },
+          createdDate: comment.createdDate || "",
+          modifiedBy: comment.modifiedBy ? {
+            displayName: comment.modifiedBy.displayName || "Unknown",
+            uniqueName: comment.modifiedBy.uniqueName || "",
+          } : undefined,
+          modifiedDate: comment.modifiedDate || undefined,
+        };
+      });
+      
+      console.log("[getWorkItemComments] Returning", comments.length, "processed comments");
+      return comments;
+    }
+    
+    console.log("[getWorkItemComments] No comments array found in response");
+    return [];
+  } catch (e) {
+    console.error("[getWorkItemComments] Error fetching comments for", workItemId, e);
+    return [];
+  }
+}
+
+export async function addCommentToWorkItem(
+  workItemId: number,
+  comment: string,
+): Promise<{ success: boolean; error?: string }> {
+  const preferences = getPreferenceValues<Preferences>();
+  const body = JSON.stringify({ text: comment });
+  
+  // Write body to a temp file because some az versions require --in-file
+  const tmpFile = path.join(os.tmpdir(), `raycast-ado-comment-${workItemId}-${Date.now()}.json`);
+  
+  // Log the command we're about to run for debugging
+  console.log("[addCommentToWorkItem] Will execute command with workItemId:", workItemId);
+  console.log("[addCommentToWorkItem] Organization:", preferences.azureOrganization);
+  console.log("[addCommentToWorkItem] Comment body:", body);
+  
+  // Work item comments API requires project in the route parameters
+  const project = preferences.azureProject || "WeDo"; // fallback to WeDo project
+  const args = [
+    "devops",
+    "invoke",
+    "--area",
+    "wit",
+    "--resource",
+    "comments",
+    "--route-parameters",
+    `project=${project}`,
+    `workItemId=${workItemId}`,
+    "--http-method",
+    "POST",
+    "--in-file",
+    tmpFile,
+    "--api-version",
+    "6.0-preview",
+    "--output",
+    "json",
+    ...(preferences.azureOrganization ? ["--organization", preferences.azureOrganization] : []),
+  ];
+  
+  console.log("[addCommentToWorkItem] Using project:", project);
+  
+  try {
+    await fs.writeFile(tmpFile, body, "utf8");
+
+    const { stdout } = await runAz(args);
+    const json = JSON.parse(stdout || "{}");
+    if (json && (json.id || json.text)) {
+      try {
+        await fs.unlink(tmpFile);
+      } catch {}
+      return { success: true };
+    }
+    try {
+      await fs.unlink(tmpFile);
+    } catch {}
+    return { success: true };
+  } catch (e: any) {
+    // Enhanced error logging for debugging
+    console.error("[addCommentToWorkItem] Full error object:", e);
+    console.error("[addCommentToWorkItem] workItemId:", workItemId);
+    console.error("[addCommentToWorkItem] command args:", args);
+    
+    const msg = typeof e?.stderr === "string" && e.stderr
+      ? e.stderr
+      : e?.message || String(e);
+    console.error("[addCommentToWorkItem] Final error message:", msg);
+    
+    // Clean up temp file on error
+    try {
+      await fs.unlink(tmpFile);
+    } catch (cleanupError) {
+      console.error("[addCommentToWorkItem] Failed to cleanup temp file:", cleanupError);
+    }
+    
+    return { success: false, error: msg };
+  }
 }
