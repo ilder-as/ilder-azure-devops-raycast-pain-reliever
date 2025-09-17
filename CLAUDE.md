@@ -55,7 +55,9 @@ Configure the extension preferences in Raycast settings:
 - Entry point: `src/list-builds.tsx`
 
 ### 6. List Pull Requests (`list-pull-requests`)
-- View active PRs where you’re author or reviewer
+- View ALL active PRs in the project  
+- Organized in sections: "Mine" (your PRs first) and "Active" (others, no duplicates)
+- Shows complete project activity while prioritizing your work
 - Quick open and copy actions
 - Entry point: `src/list-pull-requests.tsx`
 

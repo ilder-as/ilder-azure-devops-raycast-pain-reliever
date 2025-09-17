@@ -79,31 +79,11 @@ export default function Command() {
         );
       }
 
-      // Fetch PRs where user is the creator
-      const createdArgs = [
+      // Fetch ALL active PRs (not just user-related ones)
+      const allActiveArgs = [
         "repos",
         "pr",
         "list",
-        "--creator",
-        user,
-        "--status",
-        "active",
-        "--output",
-        "json",
-        "--organization",
-        preferences.azureOrganization!,
-        "--project",
-        preferences.azureProject!,
-        ...(preferences.azureRepository
-          ? ["--repository", preferences.azureRepository]
-          : []),
-      ];
-      const reviewArgs = [
-        "repos",
-        "pr",
-        "list",
-        "--reviewer",
-        user,
         "--status",
         "active",
         "--output",
@@ -117,21 +97,8 @@ export default function Command() {
           : []),
       ];
 
-      const [createdResult, reviewResult] = await Promise.all([
-        runAz(createdArgs),
-        runAz(reviewArgs),
-      ]);
-
-      const createdPRs: PullRequest[] = JSON.parse(createdResult.stdout);
-      const reviewPRs: PullRequest[] = JSON.parse(reviewResult.stdout);
-
-      // Combine and deduplicate PRs (in case user is both author and reviewer)
-      const allPRs = [...createdPRs];
-      reviewPRs.forEach((reviewPR) => {
-        if (!allPRs.some((pr) => pr.pullRequestId === reviewPR.pullRequestId)) {
-          allPRs.push(reviewPR);
-        }
-      });
+      const result = await runAz(allActiveArgs);
+      const allPRs: PullRequest[] = JSON.parse(result.stdout);
 
       // Sort by creation date (newest first)
       const sortedPRs = allPRs.sort(
@@ -143,10 +110,12 @@ export default function Command() {
       setPullRequests(sortedPRs);
 
       if (sortedPRs.length > 0) {
+        const myCount = sortedPRs.filter(pr => pr.createdBy.uniqueName === user).length;
+        const otherCount = sortedPRs.length - myCount;
         await showToast(
           Toast.Style.Success,
           "Loaded!",
-          `Found ${sortedPRs.length} pull requests (${createdPRs.length} created, ${reviewPRs.length} to review)`,
+          `Found ${sortedPRs.length} pull requests (${myCount} mine, ${otherCount} active)`,
         );
       } else {
         await showToast(
@@ -243,15 +212,20 @@ export default function Command() {
           }
         />
       ) : (
-        <List.Section title={`Pull Requests (${currentUser || "You"})`}>
-          {pullRequests.map((pr) => {
-            const prUrl = getPullRequestUrl(pr);
-            const userRole = getUserRole(pr, currentUser);
-            const reviewStatus = getReviewStatus(pr, currentUser);
-            const sourceBranch = formatBranchName(pr.sourceRefName);
-            const targetBranch = formatBranchName(pr.targetRefName);
+        <>
+          {(() => {
+            // Separate user's PRs from others
+            const myPRs = pullRequests.filter(pr => pr.createdBy.uniqueName === currentUser);
+            const otherPRs = pullRequests.filter(pr => pr.createdBy.uniqueName !== currentUser);
 
-            return (
+            const renderPRItem = (pr: PullRequest) => {
+              const prUrl = getPullRequestUrl(pr);
+              const userRole = getUserRole(pr, currentUser);
+              const reviewStatus = getReviewStatus(pr, currentUser);
+              const sourceBranch = formatBranchName(pr.sourceRefName);
+              const targetBranch = formatBranchName(pr.targetRefName);
+
+              return (
               <List.Item
                 key={pr.pullRequestId}
                 icon={{
@@ -335,9 +309,25 @@ export default function Command() {
                   </ActionPanel>
                 }
               />
+              );
+            };
+
+            return (
+              <>
+                {myPRs.length > 0 && (
+                  <List.Section title={`Mine (${myPRs.length})`}>
+                    {myPRs.map(renderPRItem)}
+                  </List.Section>
+                )}
+                {otherPRs.length > 0 && (
+                  <List.Section title={`Active (${otherPRs.length})`}>
+                    {otherPRs.map(renderPRItem)}
+                  </List.Section>
+                )}
+              </>
             );
-          })}
-        </List.Section>
+          })()}
+        </>
       )}
     </List>
   );
