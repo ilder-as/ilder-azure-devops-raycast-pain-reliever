@@ -1,6 +1,6 @@
 import { ActionPanel, Action, Icon, useNavigation } from "@raycast/api";
 import { WorkItemDetails, WorkItemRelationsData } from "../types/work-item";
-import { WorkItemLite } from "../azure-devops-utils";
+import { WorkItemLite } from "../azure-devops";
 
 interface WorkItemActionsProps {
   workItem: WorkItemDetails | null;

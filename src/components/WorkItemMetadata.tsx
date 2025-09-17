@@ -1,6 +1,6 @@
 import { getPreferenceValues } from "@raycast/api";
 import { WorkItemDetails, Preferences } from "../types/work-item";
-import { convertToBranchName } from "../azure-devops-utils";
+import { convertToBranchName } from "../azure-devops";
 
 interface WorkItemMetadataProps {
   workItem: WorkItemDetails;

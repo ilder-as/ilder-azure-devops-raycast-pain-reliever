@@ -1,6 +1,6 @@
 import { Form, ActionPanel, Action, showToast, Toast, getPreferenceValues } from "@raycast/api";
 import { useState } from "react";
-import { getCurrentUser, convertToBranchName } from "./azure-devops-utils";
+import { getCurrentUser, convertToBranchName } from "./azure-devops";
 import { runAz } from "./az-cli";
 
 interface Preferences {

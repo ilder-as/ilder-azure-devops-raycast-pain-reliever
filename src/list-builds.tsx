@@ -11,6 +11,10 @@ import {
 import { useState, useEffect } from "react";
 import BuildLogsView from "./BuildLogsView";
 import { runAz } from "./az-cli";
+import { formatDuration } from "./utils/DateUtils";
+import { getBuildStatusIcon, getBuildResultColor } from "./utils/IconUtils";
+import { AuthenticationEmptyView } from "./components/AuthenticationEmptyView";
+import { isAuthenticationError } from "./utils/AuthErrorHandler";
 
 // Using runAz utility for all Azure CLI invocations
 
@@ -62,6 +66,7 @@ export default function Command() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCompletedItems, setTotalCompletedItems] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   async function fetchBuilds(page = 0) {
     setIsLoading(true);
@@ -179,8 +184,16 @@ export default function Command() {
         `${totalBuilds} builds (${sortedActiveBuilds.length} active, ${paginatedCompletedBuilds.length} completed)`,
       );
     } catch (error) {
-      await showToast(Toast.Style.Failure, "Error", "Failed to fetch builds");
       console.error(error);
+      
+      // Check if it's an authentication error
+      if (isAuthenticationError(error)) {
+        setAuthError(true);
+        // Don't show toast for auth errors, the empty view will handle it
+      } else {
+        await showToast(Toast.Style.Failure, "Error", "Failed to fetch builds");
+      }
+      
       setActiveBuilds([]);
       setCompletedBuilds([]);
     } finally {
@@ -195,96 +208,8 @@ export default function Command() {
     return `${preferences.azureOrganization}/${encodeURIComponent(preferences.azureProject || "")}/_build/results?buildId=${build.id}`;
   }
 
-  function getBuildStatusIcon(status: string): Icon {
-    const lowerStatus = status.toLowerCase();
-    switch (lowerStatus) {
-      case "inprogress":
-        return Icon.Clock;
-      case "notstarted":
-        return Icon.Pause;
-      case "completed":
-        return Icon.CheckCircle;
-      case "cancelling":
-        return Icon.XMarkCircle;
-      case "postponed":
-        return Icon.Calendar;
-      default:
-        return Icon.Circle;
-    }
-  }
 
-  function getBuildStatusColor(status: string, result?: string): Color {
-    const lowerStatus = status.toLowerCase();
 
-    if (lowerStatus === "completed" && result) {
-      const lowerResult = result.toLowerCase();
-      switch (lowerResult) {
-        case "succeeded":
-          return Color.Green;
-        case "failed":
-          return Color.Red;
-        case "canceled":
-          return Color.SecondaryText;
-        case "partiallysucceeded":
-          return Color.Orange;
-        default:
-          return Color.PrimaryText;
-      }
-    }
-
-    switch (lowerStatus) {
-      case "inprogress":
-        return Color.Orange;
-      case "notstarted":
-        return Color.Blue;
-      case "cancelling":
-        return Color.Red;
-      case "postponed":
-        return Color.SecondaryText;
-      default:
-        return Color.PrimaryText;
-    }
-  }
-
-  function formatDuration(startTime?: string, finishTime?: string): string {
-    if (!startTime) return "Not started";
-
-    const start = new Date(startTime);
-    const end = finishTime ? new Date(finishTime) : new Date();
-
-    // Check if dates are valid
-    if (isNaN(start.getTime())) {
-      return "Invalid start time";
-    }
-    if (finishTime && isNaN(end.getTime())) {
-      return "Invalid end time";
-    }
-
-    const diffMs = end.getTime() - start.getTime();
-
-    // If the difference is negative or unreasonably large, something is wrong
-    if (diffMs < 0) {
-      return "Future build";
-    }
-
-    // If duration is more than 3 hours, something is likely wrong with the data
-    if (diffMs > 3 * 60 * 60 * 1000) {
-      return "Check build times";
-    }
-
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-    if (diffMinutes > 60) {
-      const hours = Math.floor(diffMinutes / 60);
-      const remainingMinutes = diffMinutes % 60;
-      return `${hours}h ${remainingMinutes}m`;
-    } else if (diffMinutes > 0) {
-      return `${diffMinutes}m ${diffSeconds}s`;
-    } else {
-      return `${diffSeconds}s`;
-    }
-  }
 
   function getActiveSectionTitle(): string {
     const count = activeBuilds.length;
@@ -345,7 +270,7 @@ export default function Command() {
   function renderBuildItem(build: Build, keyPrefix: string) {
     const buildUrl = getBuildUrl(build);
     const statusIcon = getBuildStatusIcon(build.status);
-    const statusColor = getBuildStatusColor(build.status, build.result);
+    const statusColor = build.result ? getBuildResultColor(build.result) : getBuildResultColor(build.status);
     const duration = formatDuration(build.startTime, build.finishTime);
 
     // Get the detailed run information
@@ -526,23 +451,27 @@ export default function Command() {
       {!isLoading &&
       activeBuilds.length === 0 &&
       completedBuilds.length === 0 ? (
-        <List.EmptyView
-          icon="🏗️"
-          title="No Builds Found"
-          description="No builds are available. This could mean no builds have been run recently, or there might be a configuration issue."
-          actions={
-            <ActionPanel>
-              <ActionPanel.Section title="Navigation">
-                <Action
-                  title="Refresh"
-                  onAction={() => fetchBuilds(currentPage)}
-                  icon={Icon.ArrowClockwise}
-                  shortcut={{ modifiers: ["cmd"], key: "r" }}
-                />
-              </ActionPanel.Section>
-            </ActionPanel>
-          }
-        />
+        authError ? (
+          <AuthenticationEmptyView />
+        ) : (
+          <List.EmptyView
+            icon="🏗️"
+            title="No Builds Found"
+            description="No builds are available. This could mean no builds have been run recently, or there might be a configuration issue."
+            actions={
+              <ActionPanel>
+                <ActionPanel.Section title="Navigation">
+                  <Action
+                    title="Refresh"
+                    onAction={() => fetchBuilds(currentPage)}
+                    icon={Icon.ArrowClockwise}
+                    shortcut={{ modifiers: ["cmd"], key: "r" }}
+                  />
+                </ActionPanel.Section>
+              </ActionPanel>
+            }
+          />
+        )
       ) : (
         <>
           {activeBuilds.length > 0 && (

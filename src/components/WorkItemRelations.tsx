@@ -1,6 +1,6 @@
 import { getPreferenceValues } from "@raycast/api";
 import { WorkItemDetails, WorkItemRelationsData, Preferences } from "../types/work-item";
-import { WorkItemLite, WorkItemComment } from "../azure-devops-utils";
+import { WorkItemLite, WorkItemComment } from "../azure-devops";
 import { getWorkItemTypeIcon } from "./WorkItemMetadata";
 
 interface WorkItemRelationsProps {

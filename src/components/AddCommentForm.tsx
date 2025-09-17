@@ -1,6 +1,6 @@
 import { Form, ActionPanel, Action, Icon, showToast, Toast } from "@raycast/api";
 import { useState } from "react";
-import { addCommentToWorkItem } from "../azure-devops-utils";
+import { addCommentToWorkItem } from "../azure-devops";
 
 interface AddCommentFormProps {
   workItemId: number;

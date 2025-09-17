@@ -1,6 +1,7 @@
 import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
+import { getPullRequestStatusEmoji } from "./utils/IconUtils";
 
 interface Preferences {
   branchPrefix: string;
@@ -123,7 +124,7 @@ export default function PullRequestDetailsView({
   function generateMarkdown(): string {
     if (!prDetails) return "Loading pull request details...";
 
-    const statusEmoji = getStatusEmoji(prDetails.status, prDetails.isDraft);
+    const statusEmoji = getPullRequestStatusEmoji(prDetails.status, prDetails.isDraft);
     const sourceBranch = prDetails.sourceRefName.replace("refs/heads/", "");
     const targetBranch = prDetails.targetRefName.replace("refs/heads/", "");
 
@@ -174,21 +175,6 @@ export default function PullRequestDetailsView({
     return markdown;
   }
 
-  function getStatusEmoji(status: string, isDraft: boolean): string {
-    if (isDraft) return "📝";
-
-    const lowerStatus = status.toLowerCase();
-    switch (lowerStatus) {
-      case "active":
-        return "🔄";
-      case "completed":
-        return "✅";
-      case "abandoned":
-        return "❌";
-      default:
-        return "⚪";
-    }
-  }
 
   function getVoteEmoji(vote: number): string {
     if (vote > 0) return "✅"; // Approved

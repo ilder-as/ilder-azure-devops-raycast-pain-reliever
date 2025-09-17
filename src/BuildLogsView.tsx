@@ -11,6 +11,8 @@ import {
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
+import { formatRelativeDate, formatDuration } from "./utils/DateUtils";
+import { getBuildStatusEmoji } from "./utils/IconUtils";
 
 // Using runAz utility for Azure CLI execution
 
@@ -163,10 +165,7 @@ export default function BuildLogsView({
   function generateMarkdown(): string {
     if (!buildDetails) return "Loading build details...";
 
-    const statusEmoji = getStatusEmoji(
-      buildDetails.status,
-      buildDetails.result,
-    );
+    const statusEmoji = getBuildStatusEmoji(buildDetails.result || buildDetails.status);
     const duration = formatDuration(
       buildDetails.startTime,
       buildDetails.finishTime,
@@ -201,7 +200,7 @@ export default function BuildLogsView({
     if (existingPR) {
       const prUrl = getPRUrl(existingPR);
       markdown += `📥 **Pull Request Found**: [PR #${existingPR.pullRequestId}: ${existingPR.title}](${prUrl})\n`;
-      markdown += `• Status: ${existingPR.status} • Created: ${formatDate(existingPR.creationDate)}\n\n`;
+      markdown += `• Status: ${existingPR.status} • Created: ${formatRelativeDate(existingPR.creationDate)}\n\n`;
     } else if (isCheckingPR) {
       markdown += `🔍 **Checking for existing pull requests...**\n\n`;
     }
@@ -216,76 +215,7 @@ export default function BuildLogsView({
     return markdown;
   }
 
-  function getStatusEmoji(status: string, result?: string): string {
-    const lowerStatus = status.toLowerCase();
 
-    if (lowerStatus === "completed" && result) {
-      const lowerResult = result.toLowerCase();
-      switch (lowerResult) {
-        case "succeeded":
-          return "✅";
-        case "failed":
-          return "❌";
-        case "canceled":
-          return "⏹️";
-        case "partiallysucceeded":
-          return "⚠️";
-        default:
-          return "⚪";
-      }
-    }
-
-    switch (lowerStatus) {
-      case "inprogress":
-        return "🔄";
-      case "notstarted":
-        return "⏸️";
-      case "cancelling":
-        return "🛑";
-      default:
-        return "⚪";
-    }
-  }
-
-  function formatDuration(startTime?: string, finishTime?: string): string {
-    if (!startTime) return "Not started";
-
-    const start = new Date(startTime);
-    const end = finishTime ? new Date(finishTime) : new Date();
-
-    // Check if dates are valid
-    if (isNaN(start.getTime())) {
-      return "Invalid start time";
-    }
-    if (finishTime && isNaN(end.getTime())) {
-      return "Invalid end time";
-    }
-
-    const diffMs = end.getTime() - start.getTime();
-
-    // If the difference is negative or unreasonably large, something is wrong
-    if (diffMs < 0) {
-      return "Future build";
-    }
-
-    // If duration is more than 3 hours, something is likely wrong with the data
-    if (diffMs > 3 * 60 * 60 * 1000) {
-      return "Check build times";
-    }
-
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-    if (diffMinutes > 60) {
-      const hours = Math.floor(diffMinutes / 60);
-      const remainingMinutes = diffMinutes % 60;
-      return `${hours}h ${remainingMinutes}m`;
-    } else if (diffMinutes > 0) {
-      return `${diffMinutes}m ${diffSeconds}s`;
-    } else {
-      return `${diffSeconds}s`;
-    }
-  }
 
   function getBuildUrl(): string {
     const preferences = getPreferenceValues<Preferences>();
@@ -612,20 +542,6 @@ export default function BuildLogsView({
     return `${preferences.azureOrganization}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
   }
 
-  function formatDate(dateString: string): string {
-    if (!dateString) return "Unknown";
-
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
-
-    return date.toLocaleDateString();
-  }
 
   // Auto-refresh every 10 seconds for active builds
   useEffect(() => {

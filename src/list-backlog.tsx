@@ -12,7 +12,9 @@ import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import WorkItemDetailsView from "./WorkItemDetailsView";
-import { convertToBranchName } from "./azure-devops-utils";
+import { convertToBranchName } from "./azure-devops";
+import { formatRelativeDate } from "./utils/DateUtils";
+import { getWorkItemTypeIcon, getStateColor } from "./utils/IconUtils";
 
 // Azure CLI runner imported via runAz utility
 
@@ -197,79 +199,8 @@ export default function Command() {
     return `${preferences.azureOrganization}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItem.id}`;
   }
 
-  function getWorkItemTypeIcon(type: string): Icon {
-    const lowerType = type.toLowerCase();
-    switch (lowerType) {
-      case "bug":
-        return Icon.Bug;
-      case "task":
-        return Icon.CheckCircle;
-      case "user story":
-      case "story":
-        return Icon.Person;
-      case "product backlog item":
-      case "pbi":
-        return Icon.List;
-      case "feature":
-        return Icon.Star;
-      case "epic":
-        return Icon.Crown;
-      case "issue":
-        return Icon.ExclamationMark;
-      case "test case":
-        return Icon.Play;
-      case "test suite":
-        return Icon.Folder;
-      case "test plan":
-        return Icon.Document;
-      case "requirement":
-        return Icon.Text;
-      case "code review request":
-        return Icon.Eye;
-      default:
-        return Icon.Circle;
-    }
-  }
 
-  function getStateColor(state: string): Color {
-    const lowerState = state.toLowerCase();
-    switch (lowerState) {
-      case "new":
-      case "to do":
-      case "proposed":
-        return Color.Blue;
-      case "active":
-      case "in progress":
-      case "committed":
-      case "approved":
-        return Color.Orange;
-      case "resolved":
-      case "done":
-      case "completed":
-        return Color.Green;
-      case "closed":
-      case "removed":
-        return Color.SecondaryText;
-      case "blocked":
-      case "on hold":
-        return Color.Red;
-      default:
-        return Color.PrimaryText;
-    }
-  }
 
-  function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
-
-    return date.toLocaleDateString();
-  }
 
 
   function getPaginationTitle(): string {
@@ -425,7 +356,7 @@ export default function Command() {
                     tooltip: `Assigned to: ${workItem.fields["System.AssignedTo"]?.displayName || "Unassigned"}`,
                   },
                   {
-                    text: formatDate(
+                    text: formatRelativeDate(
                       viewMode === "recent"
                         ? workItem.fields["System.CreatedDate"]
                         : workItem.fields["System.ChangedDate"],

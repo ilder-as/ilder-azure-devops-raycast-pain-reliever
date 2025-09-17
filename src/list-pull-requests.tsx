@@ -2,7 +2,9 @@ import { List, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon,
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
-import { getCurrentUser } from "./azure-devops-utils";
+import { formatRelativeDate } from "./utils/DateUtils";
+import { getPullRequestStatusIcon, getPullRequestStatusColor } from "./utils/IconUtils";
+import { getCurrentUser } from "./azure-devops";
 
 
 interface Preferences {
@@ -176,61 +178,8 @@ export default function Command() {
     return `${preferences.azureOrganization}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
   }
 
-  function getPRStatusIcon(status: string, isDraft: boolean): Icon {
-    if (isDraft) return Icon.Document;
 
-    const lowerStatus = status.toLowerCase();
-    switch (lowerStatus) {
-      case "active":
-        return Icon.Circle;
-      case "completed":
-        return Icon.CheckCircle;
-      case "abandoned":
-        return Icon.XMarkCircle;
-      default:
-        return Icon.Circle;
-    }
-  }
 
-  function getPRStatusColor(
-    status: string,
-    isDraft: boolean,
-    mergeStatus: string,
-  ): Color {
-    if (isDraft) return Color.SecondaryText;
-
-    const lowerStatus = status.toLowerCase();
-    const lowerMergeStatus = mergeStatus.toLowerCase();
-
-    if (lowerStatus === "active") {
-      if (lowerMergeStatus === "conflicts") {
-        return Color.Red;
-      }
-      return Color.Orange;
-    }
-
-    switch (lowerStatus) {
-      case "completed":
-        return Color.Green;
-      case "abandoned":
-        return Color.Red;
-      default:
-        return Color.PrimaryText;
-    }
-  }
-
-  function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
-
-    return date.toLocaleDateString();
-  }
 
   function getReviewStatus(pr: PullRequest, currentUserEmail: string): string {
     const isAuthor = pr.createdBy.uniqueName === currentUserEmail;
@@ -306,12 +255,8 @@ export default function Command() {
               <List.Item
                 key={pr.pullRequestId}
                 icon={{
-                  source: getPRStatusIcon(pr.status, pr.isDraft),
-                  tintColor: getPRStatusColor(
-                    pr.status,
-                    pr.isDraft,
-                    pr.mergeStatus,
-                  ),
+                  source: getPullRequestStatusIcon(pr.status, pr.isDraft),
+                  tintColor: getPullRequestStatusColor(pr.status),
                 }}
                 title={`#${pr.pullRequestId}: ${pr.title}`}
                 subtitle={`${sourceBranch} → ${targetBranch} • ${pr.repository.name}`}
@@ -329,7 +274,7 @@ export default function Command() {
                     tooltip: `Review status: ${reviewStatus}`,
                   },
                   {
-                    text: formatDate(pr.creationDate),
+                    text: formatRelativeDate(pr.creationDate),
                     tooltip: `Created: ${new Date(pr.creationDate).toLocaleString()}`,
                   },
                 ]}
