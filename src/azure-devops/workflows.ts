@@ -12,7 +12,9 @@ import type { Preferences, ActivateAndCreatePRResult } from "./types";
  * Complete workflow to activate a work item and create a PR
  * This combines: activate work item -> create branch -> create PR
  */
-export async function activateAndCreatePR(workItemId: string): Promise<ActivateAndCreatePRResult> {
+export async function activateAndCreatePR(
+  workItemId: string,
+): Promise<ActivateAndCreatePRResult> {
   const preferences = getPreferenceValues<Preferences>();
 
   // Step 1: Fetch work item details

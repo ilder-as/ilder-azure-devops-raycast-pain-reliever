@@ -245,8 +245,14 @@ export function generateWorkItemMarkdown({
 
   // Branch info — prefer showing any existing remote branches regardless of owner
   if (relatedBranches.length > 0) {
-    const shown = relatedBranches.slice(0, 2).map((b) => `\`${b}\``).join(", ");
-    const extra = relatedBranches.length > 2 ? ` (+${relatedBranches.length - 2} more)` : "";
+    const shown = relatedBranches
+      .slice(0, 2)
+      .map((b) => `\`${b}\``)
+      .join(", ");
+    const extra =
+      relatedBranches.length > 2
+        ? ` (+${relatedBranches.length - 2} more)`
+        : "";
     markdown += `**Active Branch${relatedBranches.length > 1 ? "es" : ""}:** ${shown}${extra}\n\n`;
   } else {
     // Suggested Branch Name (fallback)

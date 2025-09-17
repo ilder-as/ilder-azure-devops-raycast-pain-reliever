@@ -1,6 +1,5 @@
-import { ActionPanel, Action, Icon, useNavigation } from "@raycast/api";
+import { ActionPanel, Action, Icon } from "@raycast/api";
 import { WorkItemDetails, WorkItemRelationsData } from "../types/work-item";
-import { WorkItemLite } from "../azure-devops";
 
 interface WorkItemActionsProps {
   workItem: WorkItemDetails | null;
@@ -53,11 +52,14 @@ export default function WorkItemActions({
   }
 
   const workItemType = workItem.fields["System.WorkItemType"].toLowerCase();
-  const isStory = workItemType === "user story" || workItemType === "product backlog item" || workItemType === "pbi";
+  const isStory =
+    workItemType === "user story" ||
+    workItemType === "product backlog item" ||
+    workItemType === "pbi";
   const hasRelatedItems = !!(
-    relations.parentItem || 
-    relations.siblingItems.length > 0 || 
-    relations.relatedItems.length > 0 || 
+    relations.parentItem ||
+    relations.siblingItems.length > 0 ||
+    relations.relatedItems.length > 0 ||
     relations.childItems.length > 0
   );
 
@@ -79,28 +81,28 @@ export default function WorkItemActions({
             shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
           />
         )}
-        
+
         <Action
           title="Activate & Create Branch"
           icon={Icon.Rocket}
           shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
           onAction={onActivateAndBranch}
         />
-        
+
         <Action
           title="Copy Context for AI"
           onAction={onCopyContextForAI}
           icon={Icon.Clipboard}
           shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
         />
-        
+
         <Action
           title="Add Comment…"
           icon={Icon.Pencil}
           shortcut={{ modifiers: ["cmd"], key: "m" }}
           onAction={onAddComment}
         />
-        
+
         {isStory && onLinkToFeature && (
           <Action
             title="Link to Feature…"
@@ -109,7 +111,7 @@ export default function WorkItemActions({
             onAction={onLinkToFeature}
           />
         )}
-        
+
         {hasRelatedItems && (
           <Action
             title="Browse Related Items"
@@ -118,30 +120,30 @@ export default function WorkItemActions({
             onAction={onBrowseRelated}
           />
         )}
-        
+
         {Boolean(workItemUrl) && (
           <Action.OpenInBrowser
-            title="Open in Azure DevOps"
+            title="Open in Azure Devops"
             url={workItemUrl}
             icon={Icon.Globe}
             shortcut={{ modifiers: ["cmd"], key: "o" }}
           />
         )}
-        
+
         <Action.CopyToClipboard
           title="Copy Work Item ID"
           content={workItem.id.toString()}
           icon={Icon.Clipboard}
           shortcut={{ modifiers: ["cmd"], key: "c" }}
         />
-        
+
         <Action.CopyToClipboard
           title="Copy Work Item Title"
           content={workItem.fields["System.Title"]}
           icon={Icon.Text}
           shortcut={{ modifiers: ["cmd"], key: "t" }}
         />
-        
+
         <Action.CopyToClipboard
           title="Copy Branch Name"
           content={branchName}
@@ -149,7 +151,7 @@ export default function WorkItemActions({
           shortcut={{ modifiers: ["cmd"], key: "b" }}
         />
       </ActionPanel.Section>
-      
+
       <ActionPanel.Section title="View Actions">
         <Action
           title="Refresh"

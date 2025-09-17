@@ -1,4 +1,11 @@
-import { Form, ActionPanel, Action, showToast, Toast, getPreferenceValues } from "@raycast/api";
+import {
+  Form,
+  ActionPanel,
+  Action,
+  showToast,
+  Toast,
+  getPreferenceValues,
+} from "@raycast/api";
 import { useState } from "react";
 import { getCurrentUser, convertToBranchName } from "./azure-devops";
 import { runAz } from "./az-cli";
@@ -40,7 +47,6 @@ export default function ActivateAndBranchForm({
   const [currentUser, setCurrentUser] = useState<string>("");
   const [branchUrl, setBranchUrl] = useState<string>("");
   const [workItemUrl, setWorkItemUrl] = useState<string>("");
-
 
   async function activateAndBranch(workItemId: string) {
     if (!workItemId) {
@@ -252,7 +258,6 @@ export default function ActivateAndBranchForm({
       setIsLoading(false);
     }
   }
-
 
   return (
     <Form

@@ -1,4 +1,12 @@
-import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon } from "@raycast/api";
+import {
+  Detail,
+  ActionPanel,
+  Action,
+  showToast,
+  Toast,
+  getPreferenceValues,
+  Icon,
+} from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import { getPullRequestStatusEmoji } from "./utils/IconUtils";
@@ -124,7 +132,10 @@ export default function PullRequestDetailsView({
   function generateMarkdown(): string {
     if (!prDetails) return "Loading pull request details...";
 
-    const statusEmoji = getPullRequestStatusEmoji(prDetails.status, prDetails.isDraft);
+    const statusEmoji = getPullRequestStatusEmoji(
+      prDetails.status,
+      prDetails.isDraft,
+    );
     const sourceBranch = prDetails.sourceRefName.replace("refs/heads/", "");
     const targetBranch = prDetails.targetRefName.replace("refs/heads/", "");
 
@@ -174,7 +185,6 @@ export default function PullRequestDetailsView({
 
     return markdown;
   }
-
 
   function getVoteEmoji(vote: number): string {
     if (vote > 0) return "✅"; // Approved
@@ -240,20 +250,20 @@ export default function PullRequestDetailsView({
           <ActionPanel.Section title="Pull Request Actions">
             {prUrl && (
               <Action.OpenInBrowser
-                title="Open PR in Azure DevOps"
+                title="Open Pr in Azure Devops"
                 url={prUrl}
                 icon={Icon.Globe}
                 shortcut={{ modifiers: ["cmd"], key: "o" }}
               />
             )}
             <Action.CopyToClipboard
-              title="Copy PR URL"
+              title="Copy Pr URL"
               content={prUrl || ""}
               icon={Icon.Link}
               shortcut={{ modifiers: ["cmd"], key: "l" }}
             />
             <Action.CopyToClipboard
-              title="Copy PR ID"
+              title="Copy Pr ID"
               content={pullRequestId}
               icon={Icon.Hashtag}
               shortcut={{ modifiers: ["cmd"], key: "c" }}
@@ -261,7 +271,7 @@ export default function PullRequestDetailsView({
             {prDetails && (
               <>
                 <Action.CopyToClipboard
-                  title="Copy PR Title"
+                  title="Copy Pr Title"
                   content={prDetails.title}
                   icon={Icon.Text}
                 />

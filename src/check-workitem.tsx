@@ -1,4 +1,12 @@
-import { Form, ActionPanel, Action, Icon, Toast, showToast, useNavigation } from "@raycast/api";
+import {
+  Form,
+  ActionPanel,
+  Action,
+  Icon,
+  Toast,
+  showToast,
+  useNavigation,
+} from "@raycast/api";
 import { useEffect, useState } from "react";
 import WorkItemDetailsView from "./WorkItemDetailsView";
 
@@ -27,7 +35,9 @@ export default function Command() {
       return;
     }
     console.log("[CheckWorkItem] pushing details view", { trimmed });
-    push(<WorkItemDetailsView workItemId={trimmed} initialTitle={`#${trimmed}`} />);
+    push(
+      <WorkItemDetailsView workItemId={trimmed} initialTitle={`#${trimmed}`} />,
+    );
   }
 
   return (

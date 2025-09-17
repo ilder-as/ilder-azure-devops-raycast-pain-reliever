@@ -1,6 +1,9 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { isAuthenticationError, handleAuthenticationError } from "./utils/AuthErrorHandler";
+import {
+  isAuthenticationError,
+  handleAuthenticationError,
+} from "./utils/AuthErrorHandler";
 
 const execFileAsync = promisify(execFile);
 
@@ -25,7 +28,7 @@ export async function resolveAz(): Promise<string> {
       await execFileAsync(candidate, ["--version"], { maxBuffer: 256 * 1024 });
       cachedAzPath = candidate;
       return candidate;
-    } catch (_err) {
+    } catch {
       // Try next candidate
     }
   }
@@ -35,9 +38,11 @@ export async function resolveAz(): Promise<string> {
   );
 }
 
-export async function runAz(args: string[]): Promise<{ stdout: string; stderr: string }> {
+export async function runAz(
+  args: string[],
+): Promise<{ stdout: string; stderr: string }> {
   const az = await resolveAz();
-  
+
   try {
     return await execFileAsync(az, args, { maxBuffer: 2 * 1024 * 1024 });
   } catch (error) {
@@ -45,10 +50,11 @@ export async function runAz(args: string[]): Promise<{ stdout: string; stderr: s
     if (isAuthenticationError(error)) {
       await handleAuthenticationError(error);
       // Re-throw with a cleaner error message
-      throw new Error("Azure DevOps authentication required. Please login and try again.");
+      throw new Error(
+        "Azure DevOps authentication required. Please login and try again.",
+      );
     }
     // Re-throw other errors as-is
     throw error;
   }
 }
-

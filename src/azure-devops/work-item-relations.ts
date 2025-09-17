@@ -5,7 +5,12 @@
 import { getPreferenceValues } from "@raycast/api";
 import { runAz } from "../az-cli";
 import { getWorkItemLite } from "./work-item-operations";
-import type { Preferences, RelationItem, WorkItemLite, WorkItemRelations } from "./types";
+import type {
+  Preferences,
+  RelationItem,
+  WorkItemLite,
+  WorkItemRelations,
+} from "./types";
 
 /**
  * Extracts work item ID from Azure DevOps API URL
@@ -54,7 +59,9 @@ export async function getRelatedWorkItems(
       .filter((id): id is number => !!id)
       .slice(0, 25);
     if (childIds.length) {
-      const fetched = await Promise.all(childIds.map((id) => getWorkItemLite(id)));
+      const fetched = await Promise.all(
+        childIds.map((id) => getWorkItemLite(id)),
+      );
       children = fetched.filter((w): w is WorkItemLite => !!w);
     }
 
@@ -66,7 +73,7 @@ export async function getRelatedWorkItems(
       const parentId = extractWorkItemId(parentRel.url);
       if (parentId) {
         parent = await getWorkItemLite(parentId);
-        
+
         // Get siblings by fetching parent's children
         const { stdout: parentRelsStdout } = await runAz([
           "boards",
@@ -90,7 +97,9 @@ export async function getRelatedWorkItems(
           .filter((id): id is number => !!id && id !== workItemId)
           .slice(0, 25);
         if (siblingIds.length) {
-          const fetched = await Promise.all(siblingIds.map((id) => getWorkItemLite(id)));
+          const fetched = await Promise.all(
+            siblingIds.map((id) => getWorkItemLite(id)),
+          );
           siblings = fetched.filter((w): w is WorkItemLite => !!w);
         }
       }
@@ -103,7 +112,9 @@ export async function getRelatedWorkItems(
       .filter((id): id is number => !!id)
       .slice(0, 25);
     if (relatedIds.length) {
-      const fetched = await Promise.all(relatedIds.map((id) => getWorkItemLite(id)));
+      const fetched = await Promise.all(
+        relatedIds.map((id) => getWorkItemLite(id)),
+      );
       relatedItems = fetched.filter((w): w is WorkItemLite => !!w);
     }
   } catch (error) {

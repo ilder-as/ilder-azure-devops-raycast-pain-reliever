@@ -36,7 +36,8 @@ export async function findExistingBranchesForWorkItem(
       return [];
     }
 
-    const repositoryName = preferences.azureRepository || preferences.azureProject;
+    const repositoryName =
+      preferences.azureRepository || preferences.azureProject;
 
     // Build the common slug used at the end of our branch names
     const slug = convertToBranchName(workItemId, title, ""); // no prefix

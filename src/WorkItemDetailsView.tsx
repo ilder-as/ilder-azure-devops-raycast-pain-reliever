@@ -1,19 +1,42 @@
-import { Detail, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, useNavigation, Clipboard } from "@raycast/api";
+import {
+  Detail,
+  ActionPanel,
+  Action,
+  showToast,
+  Toast,
+  getPreferenceValues,
+  Icon,
+  useNavigation,
+  Clipboard,
+} from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
 import PullRequestDetailsView from "./PullRequestDetailsView";
-import { activateAndCreatePR, convertToBranchName, findExistingBranchesForWorkItem } from "./azure-devops";
-import { getRelatedWorkItems, getWorkItemCommentsCount, getWorkItemComments, WorkItemLite, WorkItemComment } from "./azure-devops";
+import {
+  activateAndCreatePR,
+  convertToBranchName,
+  findExistingBranchesForWorkItem,
+} from "./azure-devops";
+import {
+  getRelatedWorkItems,
+  getWorkItemComments,
+  WorkItemComment,
+} from "./azure-devops";
 import LinkUserStoryToFeature from "./LinkUserStoryToFeature";
-import { WorkItemDetails, WorkItemRelationsData, Preferences } from "./types/work-item";
-import { generateWorkItemMarkdown, cleanDescription } from "./components/WorkItemMetadata";
+import {
+  WorkItemDetails,
+  WorkItemRelationsData,
+  Preferences,
+} from "./types/work-item";
+import {
+  generateWorkItemMarkdown,
+  cleanDescription,
+} from "./components/WorkItemMetadata";
 import { generateRelationsMarkdown } from "./components/WorkItemRelations";
 import WorkItemActions from "./components/WorkItemActions";
 import AddCommentForm from "./components/AddCommentForm";
 import RelatedItemsList from "./components/RelatedItemsList";
-
-
 
 interface Props {
   workItemId: string;
@@ -90,21 +113,6 @@ export default function WorkItemDetailsView({
     }
   }
 
-  async function checkForRelatedBranches() {
-    try {
-      if (!workItem) return;
-      const branches = await findExistingBranchesForWorkItem(
-        workItem.id.toString(),
-        workItem.fields["System.Title"],
-      );
-      setRelatedBranches(branches);
-      console.log("[WIDetails] related branches", branches);
-    } catch (e) {
-      console.log("Could not check branches:", e);
-      setRelatedBranches([]);
-    }
-  }
-
   async function fetchRelatedItems() {
     if (!workItem) return;
     console.log("[WIDetails] fetchRelatedItems start");
@@ -125,8 +133,8 @@ export default function WorkItemDetailsView({
         related: related.length,
         children: children.length,
       });
-    } catch (e) {
-      console.log("Failed to fetch related items:")
+    } catch {
+      console.log("Failed to fetch related items:");
       setRelations({
         parentItem: null,
         siblingItems: [],
@@ -138,7 +146,6 @@ export default function WorkItemDetailsView({
       setIsLoadingRelations(false);
     }
   }
-
 
   async function handleCopyContextForAI() {
     if (!workItem) return;
@@ -159,7 +166,9 @@ export default function WorkItemDetailsView({
       const lines: string[] = [];
       if (parent) {
         const pDesc = cleanDescription(parent.description);
-        lines.push(`Parent #${parent.id}: ${parent.title}${pDesc ? `\n${pDesc}` : ""}`);
+        lines.push(
+          `Parent #${parent.id}: ${parent.title}${pDesc ? `\n${pDesc}` : ""}`,
+        );
       }
       if (siblings.length) {
         lines.push("Siblings:");
@@ -192,7 +201,11 @@ export default function WorkItemDetailsView({
       await showToast(Toast.Style.Success, "Copied AI context");
     } catch (e) {
       console.error("Failed to build AI context", e);
-      await showToast(Toast.Style.Failure, "Error", "Could not copy AI context");
+      await showToast(
+        Toast.Style.Failure,
+        "Error",
+        "Could not copy AI context",
+      );
     }
   }
 
@@ -293,8 +306,6 @@ export default function WorkItemDetailsView({
     return `${preferences.azureOrganization}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItem.id}`;
   }
 
-
-
   function generateMarkdown(): string {
     if (!workItem) return "Loading work item details...";
 
@@ -387,7 +398,6 @@ export default function WorkItemDetailsView({
     }
   }, [workItem]);
 
-
   const workItemUrl = getWorkItemUrl();
   const preferences = getPreferenceValues<Preferences>();
   const branchName = workItem
@@ -471,7 +481,14 @@ export default function WorkItemDetailsView({
                 siblingItems={relations.siblingItems}
                 relatedItems={relations.relatedItems}
                 childItems={relations.childItems}
-                onOpenWorkItem={(id, title) => push(<WorkItemDetailsView workItemId={String(id)} initialTitle={title} />)}
+                onOpenWorkItem={(id, title) =>
+                  push(
+                    <WorkItemDetailsView
+                      workItemId={String(id)}
+                      initialTitle={title}
+                    />,
+                  )
+                }
               />,
             )
           }
@@ -480,4 +497,3 @@ export default function WorkItemDetailsView({
     />
   );
 }
-

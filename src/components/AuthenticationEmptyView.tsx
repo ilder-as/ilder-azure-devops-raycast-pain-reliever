@@ -13,7 +13,7 @@ az login
       actions={
         <ActionPanel>
           <Action.CopyToClipboard
-            title="Copy: az login"
+            title="Copy: Az Login"
             content="az login"
             icon={Icon.Clipboard}
           />
@@ -24,7 +24,7 @@ az login
             icon={Icon.Code}
           />
           <Action.OpenInBrowser
-            title="Azure DevOps CLI Documentation"
+            title="Azure Devops Cli Documentation"
             url="https://aka.ms/azure-devops-cli-auth"
             shortcut={{ modifiers: ["cmd"], key: "d" }}
             icon={Icon.Globe}

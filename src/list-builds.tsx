@@ -6,7 +6,6 @@ import {
   Toast,
   getPreferenceValues,
   Icon,
-  Color,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
 import BuildLogsView from "./BuildLogsView";
@@ -135,11 +134,12 @@ export default function Command() {
         preferences.azureProject!,
       ];
 
-      const [inProgressResult, notStartedResult, completedResult] = await Promise.all([
-        runAz(inProgressArgs),
-        runAz(notStartedArgs),
-        runAz(completedArgs),
-      ]);
+      const [inProgressResult, notStartedResult, completedResult] =
+        await Promise.all([
+          runAz(inProgressArgs),
+          runAz(notStartedArgs),
+          runAz(completedArgs),
+        ]);
 
       const inProgressBuilds: Build[] = JSON.parse(inProgressResult.stdout);
       const notStartedBuilds: Build[] = JSON.parse(notStartedResult.stdout);
@@ -185,7 +185,7 @@ export default function Command() {
       );
     } catch (error) {
       console.error(error);
-      
+
       // Check if it's an authentication error
       if (isAuthenticationError(error)) {
         setAuthError(true);
@@ -193,7 +193,7 @@ export default function Command() {
       } else {
         await showToast(Toast.Style.Failure, "Error", "Failed to fetch builds");
       }
-      
+
       setActiveBuilds([]);
       setCompletedBuilds([]);
     } finally {
@@ -207,9 +207,6 @@ export default function Command() {
 
     return `${preferences.azureOrganization}/${encodeURIComponent(preferences.azureProject || "")}/_build/results?buildId=${build.id}`;
   }
-
-
-
 
   function getActiveSectionTitle(): string {
     const count = activeBuilds.length;
@@ -270,7 +267,9 @@ export default function Command() {
   function renderBuildItem(build: Build, keyPrefix: string) {
     const buildUrl = getBuildUrl(build);
     const statusIcon = getBuildStatusIcon(build.status);
-    const statusColor = build.result ? getBuildResultColor(build.result) : getBuildResultColor(build.status);
+    const statusColor = build.result
+      ? getBuildResultColor(build.result)
+      : getBuildResultColor(build.status);
     const duration = formatDuration(build.startTime, build.finishTime);
 
     // Get the detailed run information
@@ -341,7 +340,7 @@ export default function Command() {
               />
               {buildUrl && (
                 <Action.OpenInBrowser
-                  title="Open in Azure DevOps"
+                  title="Open in Azure Devops"
                   url={buildUrl}
                   icon={Icon.Globe}
                 />

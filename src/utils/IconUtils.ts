@@ -14,7 +14,11 @@ export function getWorkItemTypeIcon(type: string): Icon {
 
   if (normalizedType.includes("epic")) return Icon.Crown;
   if (normalizedType.includes("feature")) return Icon.Layers;
-  if (normalizedType.includes("story") || normalizedType.includes("product backlog item")) return Icon.PersonCircle;
+  if (
+    normalizedType.includes("story") ||
+    normalizedType.includes("product backlog item")
+  )
+    return Icon.PersonCircle;
   if (normalizedType.includes("bug")) return Icon.Bug;
   if (normalizedType.includes("task")) return Icon.CheckCircle;
   if (normalizedType.includes("test")) return Icon.BugOff;
@@ -33,17 +37,31 @@ export function getStateColor(state: string): Color {
   const normalizedState = state?.toLowerCase() || "";
 
   // Active/In Progress states
-  if (normalizedState === "active" || normalizedState === "in progress" || normalizedState === "doing") {
+  if (
+    normalizedState === "active" ||
+    normalizedState === "in progress" ||
+    normalizedState === "doing"
+  ) {
     return Color.Blue;
   }
 
   // New/Open states
-  if (normalizedState === "new" || normalizedState === "to do" || normalizedState === "open" || normalizedState === "approved") {
+  if (
+    normalizedState === "new" ||
+    normalizedState === "to do" ||
+    normalizedState === "open" ||
+    normalizedState === "approved"
+  ) {
     return Color.Green;
   }
 
   // Closed/Done states
-  if (normalizedState === "closed" || normalizedState === "done" || normalizedState === "resolved" || normalizedState === "completed") {
+  if (
+    normalizedState === "closed" ||
+    normalizedState === "done" ||
+    normalizedState === "resolved" ||
+    normalizedState === "completed"
+  ) {
     return Color.SecondaryText;
   }
 
@@ -53,7 +71,11 @@ export function getStateColor(state: string): Color {
   }
 
   // Design/Review states
-  if (normalizedState === "design" || normalizedState === "in review" || normalizedState === "awaiting review") {
+  if (
+    normalizedState === "design" ||
+    normalizedState === "in review" ||
+    normalizedState === "awaiting review"
+  ) {
     return Color.Purple;
   }
 
@@ -76,7 +98,10 @@ export function getStateColor(state: string): Color {
  * @param isDraft - Whether the PR is a draft
  * @returns The corresponding Raycast Icon
  */
-export function getPullRequestStatusIcon(status: string, isDraft: boolean = false): Icon {
+export function getPullRequestStatusIcon(
+  status: string,
+  isDraft: boolean = false,
+): Icon {
   if (isDraft) return Icon.Pencil;
 
   const normalizedStatus = status?.toLowerCase() || "";
@@ -219,7 +244,10 @@ export function getBuildStatusEmoji(status: string): string {
  * @param isDraft - Whether the PR is a draft
  * @returns An emoji string
  */
-export function getPullRequestStatusEmoji(status: string, isDraft: boolean = false): string {
+export function getPullRequestStatusEmoji(
+  status: string,
+  isDraft: boolean = false,
+): string {
   if (isDraft) return "📝";
 
   const normalizedStatus = status?.toLowerCase() || "";

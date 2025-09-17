@@ -1,4 +1,12 @@
-import { List, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon, Color } from "@raycast/api";
+import {
+  List,
+  ActionPanel,
+  Action,
+  showToast,
+  Toast,
+  getPreferenceValues,
+  Icon,
+} from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import ActivateAndBranchForm from "./ActivateAndBranchForm";
@@ -6,7 +14,6 @@ import WorkItemDetailsView from "./WorkItemDetailsView";
 import { getCurrentUser, convertToBranchName } from "./azure-devops";
 import { formatRelativeDate } from "./utils/DateUtils";
 import { getWorkItemTypeIcon, getStateColor } from "./utils/IconUtils";
-
 
 interface Preferences {
   branchPrefix: string;
@@ -40,7 +47,6 @@ export default function Command() {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [currentUser, setCurrentUser] = useState<string>("");
 
-
   async function fetchMyWorkItems() {
     setIsLoading(true);
     try {
@@ -65,7 +71,9 @@ export default function Command() {
         ...(preferences.azureOrganization
           ? ["--organization", preferences.azureOrganization]
           : []),
-        ...(preferences.azureProject ? ["--project", preferences.azureProject] : []),
+        ...(preferences.azureProject
+          ? ["--project", preferences.azureProject]
+          : []),
       ]);
 
       // The Azure CLI boards query returns work items directly as an array
@@ -110,10 +118,6 @@ export default function Command() {
 
     return `${preferences.azureOrganization}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItem.id}`;
   }
-
-
-
-
 
   useEffect(() => {
     fetchMyWorkItems();
@@ -169,7 +173,9 @@ export default function Command() {
                     tooltip: `Project: ${workItem.fields["System.TeamProject"]}`,
                   },
                   {
-                    text: formatRelativeDate(workItem.fields["System.ChangedDate"]),
+                    text: formatRelativeDate(
+                      workItem.fields["System.ChangedDate"],
+                    ),
                     tooltip: `Last updated: ${new Date(workItem.fields["System.ChangedDate"]).toLocaleString()}`,
                   },
                 ]}
@@ -199,7 +205,7 @@ export default function Command() {
                       />
                       {workItemUrl && (
                         <Action.OpenInBrowser
-                          title="Open in Azure DevOps"
+                          title="Open in Azure Devops"
                           url={workItemUrl}
                           icon={Icon.Globe}
                         />

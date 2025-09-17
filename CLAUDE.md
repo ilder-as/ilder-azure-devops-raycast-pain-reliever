@@ -325,6 +325,7 @@ Then implement following the modular pattern established in the codebase.
 - `npm run build`: Build the extension
 - `npm run lint`: Run linting
 - `npm run fix-lint`: Fix linting issues
+- `ray lint --fix`: Raycast's built-in linter and formatter (recommended for code verification)
 
 ## Error Handling
 - Toast notifications for success/error states

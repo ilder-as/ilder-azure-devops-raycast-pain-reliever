@@ -2,7 +2,7 @@
  * Work item related Azure DevOps operations
  */
 
-import { getPreferenceValues, showToast, Toast } from "@raycast/api";
+import { getPreferenceValues } from "@raycast/api";
 import { runAz } from "../az-cli";
 import { getCurrentUser } from "./user-operations";
 import type { Preferences, WorkItemDetails, WorkItemLite } from "./types";
@@ -86,7 +86,9 @@ export async function activateWorkItem(workItemId: string): Promise<boolean> {
 /**
  * Fetches lightweight work item information
  */
-export async function getWorkItemLite(id: number): Promise<WorkItemLite | null> {
+export async function getWorkItemLite(
+  id: number,
+): Promise<WorkItemLite | null> {
   try {
     const preferences = getPreferenceValues<Preferences>();
     const { stdout } = await runAz([

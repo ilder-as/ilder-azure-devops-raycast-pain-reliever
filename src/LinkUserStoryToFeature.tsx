@@ -1,4 +1,13 @@
-import { Action, ActionPanel, Icon, List, Toast, showToast, getPreferenceValues, useNavigation } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Icon,
+  List,
+  Toast,
+  showToast,
+  getPreferenceValues,
+  useNavigation,
+} from "@raycast/api";
 import { useEffect, useState } from "react";
 import { runAz } from "./az-cli";
 
@@ -46,7 +55,10 @@ export default function LinkUserStoryToFeature({
         preferences.azureProject,
       ]);
 
-      const arr = JSON.parse(stdout) as any[];
+      const arr = JSON.parse(stdout) as Array<{
+        id: number;
+        fields?: { [key: string]: string };
+      }>;
       const items: FeatureItem[] = Array.isArray(arr)
         ? arr.map((it) => ({
             id: it.id,
@@ -86,7 +98,11 @@ export default function LinkUserStoryToFeature({
         "--organization",
         preferences.azureOrganization,
       ]);
-      await showToast(Toast.Style.Success, "Linked to feature", `#${featureId}`);
+      await showToast(
+        Toast.Style.Success,
+        "Linked to feature",
+        `#${featureId}`,
+      );
       if (onLinked) onLinked();
       pop();
     } catch (e) {
@@ -127,4 +143,3 @@ export default function LinkUserStoryToFeature({
     </List>
   );
 }
-

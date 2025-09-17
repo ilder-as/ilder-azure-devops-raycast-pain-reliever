@@ -1,4 +1,4 @@
-import { List, ActionPanel, Action, Icon, useNavigation } from "@raycast/api";
+import { List, ActionPanel, Action, Icon } from "@raycast/api";
 
 interface RelatedItemsListProps {
   parentItem: { id: number; title: string } | null;
@@ -15,7 +15,6 @@ export default function RelatedItemsList({
   childItems,
   onOpenWorkItem,
 }: RelatedItemsListProps) {
-
   return (
     <List searchBarPlaceholder="Filter related work items...">
       {parentItem && (
@@ -29,7 +28,9 @@ export default function RelatedItemsList({
                 <Action
                   title="Open Work Item"
                   icon={Icon.Eye}
-                  onAction={() => onOpenWorkItem(parentItem.id, parentItem.title)}
+                  onAction={() =>
+                    onOpenWorkItem(parentItem.id, parentItem.title)
+                  }
                 />
               </ActionPanel>
             }

@@ -1,6 +1,6 @@
 /**
  * Azure DevOps Operations - Barrel Export
- * 
+ *
  * This file provides a centralized interface for all Azure DevOps operations.
  * It exports all functions and types from the modular components.
  */
@@ -34,9 +34,21 @@ export * from "./workflows";
  * This ensures existing imports continue to work during migration
  */
 export { getCurrentUser } from "./user-operations";
-export { fetchWorkItemDetails, activateWorkItem, getWorkItemLite } from "./work-item-operations";
-export { convertToBranchName, findExistingBranchesForWorkItem, createBranch } from "./branch-operations";
+export {
+  fetchWorkItemDetails,
+  activateWorkItem,
+  getWorkItemLite,
+} from "./work-item-operations";
+export {
+  convertToBranchName,
+  findExistingBranchesForWorkItem,
+  createBranch,
+} from "./branch-operations";
 export { createPullRequestFromWorkItem } from "./pull-request-operations";
-export { getWorkItemCommentsCount, getWorkItemComments, addCommentToWorkItem } from "./work-item-comments";
+export {
+  getWorkItemCommentsCount,
+  getWorkItemComments,
+  addCommentToWorkItem,
+} from "./work-item-comments";
 export { getRelatedWorkItems } from "./work-item-relations";
 export { activateAndCreatePR } from "./workflows";

@@ -6,7 +6,6 @@ import {
   Toast,
   getPreferenceValues,
   Icon,
-  Color,
 } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
@@ -76,7 +75,9 @@ export default function Command() {
         ...(preferences.azureOrganization
           ? ["--organization", preferences.azureOrganization]
           : []),
-        ...(preferences.azureProject ? ["--project", preferences.azureProject] : []),
+        ...(preferences.azureProject
+          ? ["--project", preferences.azureProject]
+          : []),
       ]);
 
       // The Azure CLI boards query returns work items directly as an array
@@ -143,7 +144,9 @@ export default function Command() {
         ...(preferences.azureOrganization
           ? ["--organization", preferences.azureOrganization]
           : []),
-        ...(preferences.azureProject ? ["--project", preferences.azureProject] : []),
+        ...(preferences.azureProject
+          ? ["--project", preferences.azureProject]
+          : []),
       ]);
 
       // The Azure CLI boards query returns work items directly as an array
@@ -198,10 +201,6 @@ export default function Command() {
 
     return `${preferences.azureOrganization}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItem.id}`;
   }
-
-
-
-
 
   function getPaginationTitle(): string {
     const baseTitle = viewMode === "recent" ? "Recently Created" : "Backlog";
@@ -393,7 +392,7 @@ export default function Command() {
                       />
                       {workItemUrl && (
                         <Action.OpenInBrowser
-                          title="Open in Azure DevOps"
+                          title="Open in Azure Devops"
                           url={workItemUrl}
                           icon={Icon.Globe}
                         />

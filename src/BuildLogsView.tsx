@@ -165,7 +165,9 @@ export default function BuildLogsView({
   function generateMarkdown(): string {
     if (!buildDetails) return "Loading build details...";
 
-    const statusEmoji = getBuildStatusEmoji(buildDetails.result || buildDetails.status);
+    const statusEmoji = getBuildStatusEmoji(
+      buildDetails.result || buildDetails.status,
+    );
     const duration = formatDuration(
       buildDetails.startTime,
       buildDetails.finishTime,
@@ -214,8 +216,6 @@ export default function BuildLogsView({
 
     return markdown;
   }
-
-
 
   function getBuildUrl(): string {
     const preferences = getPreferenceValues<Preferences>();
@@ -542,7 +542,6 @@ export default function BuildLogsView({
     return `${preferences.azureOrganization}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
   }
 
-
   // Auto-refresh every 10 seconds for active builds
   useEffect(() => {
     fetchBuildDetails();
@@ -632,7 +631,9 @@ export default function BuildLogsView({
                     </>
                   ) : (
                     <Action
-                      title={isCreatingPR ? "Creating PR…" : "Create Pull Request"}
+                      title={
+                        isCreatingPR ? "Creating Pr…" : "Create Pull Request"
+                      }
                       onAction={createPullRequest}
                       icon={Icon.Code}
                       shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
@@ -642,7 +643,7 @@ export default function BuildLogsView({
               )}
             {buildUrl && (
               <Action.OpenInBrowser
-                title="Open Build in Azure DevOps"
+                title="Open Build in Azure Devops"
                 url={buildUrl}
                 icon={Icon.Globe}
                 shortcut={{ modifiers: ["cmd"], key: "o" }}

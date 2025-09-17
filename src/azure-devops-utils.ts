@@ -153,7 +153,8 @@ export async function findExistingBranchesForWorkItem(
       return [];
     }
 
-    const repositoryName = preferences.azureRepository || preferences.azureProject;
+    const repositoryName =
+      preferences.azureRepository || preferences.azureProject;
 
     // Build the common slug used at the end of our branch names
     const slug = convertToBranchName(workItemId, title, ""); // no prefix
@@ -456,7 +457,9 @@ export async function activateAndCreatePR(workItemId: string): Promise<{
 
 // ========== Work Item Related Functions ==========
 
-export async function getWorkItemLite(id: number): Promise<WorkItemLite | null> {
+export async function getWorkItemLite(
+  id: number,
+): Promise<WorkItemLite | null> {
   try {
     const preferences = getPreferenceValues<Preferences>();
     const { stdout } = await runAz([
@@ -486,9 +489,7 @@ export async function getWorkItemLite(id: number): Promise<WorkItemLite | null> 
   }
 }
 
-export async function getRelatedWorkItems(
-  workItemId: number,
-): Promise<{
+export async function getRelatedWorkItems(workItemId: number): Promise<{
   parent: WorkItemLite | null;
   siblings: WorkItemLite[];
   related: WorkItemLite[];
@@ -530,7 +531,9 @@ export async function getRelatedWorkItems(
     .filter((id): id is number => !!id)
     .slice(0, 25);
   if (childIds.length) {
-    const fetched = await Promise.all(childIds.map((id) => getWorkItemLite(id)));
+    const fetched = await Promise.all(
+      childIds.map((id) => getWorkItemLite(id)),
+    );
     children = fetched.filter((w): w is WorkItemLite => !!w);
   }
 
@@ -563,7 +566,9 @@ export async function getRelatedWorkItems(
         .filter((id): id is number => !!id && id !== workItemId)
         .slice(0, 25);
       if (childIds.length) {
-        const fetched = await Promise.all(childIds.map((id) => getWorkItemLite(id)));
+        const fetched = await Promise.all(
+          childIds.map((id) => getWorkItemLite(id)),
+        );
         siblings = fetched.filter((w): w is WorkItemLite => !!w);
       }
     }
@@ -575,7 +580,9 @@ export async function getRelatedWorkItems(
     .filter((id): id is number => !!id)
     .slice(0, 25);
   if (relatedIds.length) {
-    const fetched = await Promise.all(relatedIds.map((id) => getWorkItemLite(id)));
+    const fetched = await Promise.all(
+      relatedIds.map((id) => getWorkItemLite(id)),
+    );
     relatedItems = fetched.filter((w): w is WorkItemLite => !!w);
   }
 
@@ -597,7 +604,9 @@ export interface WorkItemComment {
   modifiedDate?: string;
 }
 
-export async function getWorkItemCommentsCount(workItemId: number): Promise<number | null> {
+export async function getWorkItemCommentsCount(
+  workItemId: number,
+): Promise<number | null> {
   try {
     const preferences = getPreferenceValues<Preferences>();
     // Work item comments API requires project in the route
@@ -628,16 +637,21 @@ export async function getWorkItemCommentsCount(workItemId: number): Promise<numb
   }
 }
 
-export async function getWorkItemComments(workItemId: number): Promise<WorkItemComment[]> {
+export async function getWorkItemComments(
+  workItemId: number,
+): Promise<WorkItemComment[]> {
   try {
     const preferences = getPreferenceValues<Preferences>();
-    
+
     // Work item comments API requires project in the route parameters
     const project = preferences.azureProject || "WeDo"; // fallback to WeDo project
-    
-    console.log("[getWorkItemComments] Fetching comments for work item:", workItemId);
+
+    console.log(
+      "[getWorkItemComments] Fetching comments for work item:",
+      workItemId,
+    );
     console.log("[getWorkItemComments] Using project:", project);
-    
+
     const { stdout } = await runAz([
       "devops",
       "invoke",
@@ -656,45 +670,71 @@ export async function getWorkItemComments(workItemId: number): Promise<WorkItemC
         ? ["--organization", preferences.azureOrganization]
         : []),
     ]);
-    
+
     const json = JSON.parse(stdout);
-    console.log("[getWorkItemComments] Raw API response:", JSON.stringify(json, null, 2));
-    
+    console.log(
+      "[getWorkItemComments] Raw API response:",
+      JSON.stringify(json, null, 2),
+    );
+
     // The API returns comments in a "comments" array, not "value"
     if (Array.isArray(json.comments)) {
-      console.log("[getWorkItemComments] Found", json.comments.length, "comments");
-      const comments = json.comments.map((comment: any) => {
-        console.log("[getWorkItemComments] Processing comment:", {
-          id: comment.id,
-          text: comment.text?.substring(0, 100) + "...",
-          createdBy: comment.createdBy?.displayName,
-          createdDate: comment.createdDate
-        });
-        
-        return {
-          id: comment.id || 0,
-          text: comment.text || "",
-          createdBy: {
-            displayName: comment.createdBy?.displayName || "Unknown",
-            uniqueName: comment.createdBy?.uniqueName || "",
-          },
-          createdDate: comment.createdDate || "",
-          modifiedBy: comment.modifiedBy ? {
-            displayName: comment.modifiedBy.displayName || "Unknown",
-            uniqueName: comment.modifiedBy.uniqueName || "",
-          } : undefined,
-          modifiedDate: comment.modifiedDate || undefined,
-        };
-      });
-      
-      console.log("[getWorkItemComments] Returning", comments.length, "processed comments");
+      console.log(
+        "[getWorkItemComments] Found",
+        json.comments.length,
+        "comments",
+      );
+      const comments = json.comments.map(
+        (comment: {
+          id?: number;
+          text?: string;
+          createdBy?: { displayName?: string; uniqueName?: string };
+          createdDate?: string;
+          modifiedBy?: { displayName?: string; uniqueName?: string };
+          modifiedDate?: string;
+        }) => {
+          console.log("[getWorkItemComments] Processing comment:", {
+            id: comment.id,
+            text: comment.text?.substring(0, 100) + "...",
+            createdBy: comment.createdBy?.displayName,
+            createdDate: comment.createdDate,
+          });
+
+          return {
+            id: comment.id || 0,
+            text: comment.text || "",
+            createdBy: {
+              displayName: comment.createdBy?.displayName || "Unknown",
+              uniqueName: comment.createdBy?.uniqueName || "",
+            },
+            createdDate: comment.createdDate || "",
+            modifiedBy: comment.modifiedBy
+              ? {
+                  displayName: comment.modifiedBy.displayName || "Unknown",
+                  uniqueName: comment.modifiedBy.uniqueName || "",
+                }
+              : undefined,
+            modifiedDate: comment.modifiedDate || undefined,
+          };
+        },
+      );
+
+      console.log(
+        "[getWorkItemComments] Returning",
+        comments.length,
+        "processed comments",
+      );
       return comments;
     }
-    
+
     console.log("[getWorkItemComments] No comments array found in response");
     return [];
   } catch (e) {
-    console.error("[getWorkItemComments] Error fetching comments for", workItemId, e);
+    console.error(
+      "[getWorkItemComments] Error fetching comments for",
+      workItemId,
+      e,
+    );
     return [];
   }
 }
@@ -705,15 +745,24 @@ export async function addCommentToWorkItem(
 ): Promise<{ success: boolean; error?: string }> {
   const preferences = getPreferenceValues<Preferences>();
   const body = JSON.stringify({ text: comment });
-  
+
   // Write body to a temp file because some az versions require --in-file
-  const tmpFile = path.join(os.tmpdir(), `raycast-ado-comment-${workItemId}-${Date.now()}.json`);
-  
+  const tmpFile = path.join(
+    os.tmpdir(),
+    `raycast-ado-comment-${workItemId}-${Date.now()}.json`,
+  );
+
   // Log the command we're about to run for debugging
-  console.log("[addCommentToWorkItem] Will execute command with workItemId:", workItemId);
-  console.log("[addCommentToWorkItem] Organization:", preferences.azureOrganization);
+  console.log(
+    "[addCommentToWorkItem] Will execute command with workItemId:",
+    workItemId,
+  );
+  console.log(
+    "[addCommentToWorkItem] Organization:",
+    preferences.azureOrganization,
+  );
   console.log("[addCommentToWorkItem] Comment body:", body);
-  
+
   // Work item comments API requires project in the route parameters
   const project = preferences.azureProject || "WeDo"; // fallback to WeDo project
   const args = [
@@ -734,11 +783,13 @@ export async function addCommentToWorkItem(
     "6.0-preview",
     "--output",
     "json",
-    ...(preferences.azureOrganization ? ["--organization", preferences.azureOrganization] : []),
+    ...(preferences.azureOrganization
+      ? ["--organization", preferences.azureOrganization]
+      : []),
   ];
-  
+
   console.log("[addCommentToWorkItem] Using project:", project);
-  
+
   try {
     await fs.writeFile(tmpFile, body, "utf8");
 
@@ -747,31 +798,39 @@ export async function addCommentToWorkItem(
     if (json && (json.id || json.text)) {
       try {
         await fs.unlink(tmpFile);
-      } catch {}
+      } catch (cleanupError) {
+        console.error("Failed to cleanup temp file:", cleanupError);
+      }
       return { success: true };
     }
     try {
       await fs.unlink(tmpFile);
-    } catch {}
+    } catch (cleanupError) {
+      console.error("Failed to cleanup temp file:", cleanupError);
+    }
     return { success: true };
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Enhanced error logging for debugging
     console.error("[addCommentToWorkItem] Full error object:", e);
     console.error("[addCommentToWorkItem] workItemId:", workItemId);
     console.error("[addCommentToWorkItem] command args:", args);
-    
-    const msg = typeof e?.stderr === "string" && e.stderr
-      ? e.stderr
-      : e?.message || String(e);
+
+    const msg =
+      typeof e?.stderr === "string" && e.stderr
+        ? e.stderr
+        : e?.message || String(e);
     console.error("[addCommentToWorkItem] Final error message:", msg);
-    
+
     // Clean up temp file on error
     try {
       await fs.unlink(tmpFile);
     } catch (cleanupError) {
-      console.error("[addCommentToWorkItem] Failed to cleanup temp file:", cleanupError);
+      console.error(
+        "[addCommentToWorkItem] Failed to cleanup temp file:",
+        cleanupError,
+      );
     }
-    
+
     return { success: false, error: msg };
   }
 }

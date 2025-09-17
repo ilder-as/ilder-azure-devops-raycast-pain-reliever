@@ -1,6 +1,10 @@
 import { getPreferenceValues } from "@raycast/api";
-import { WorkItemDetails, WorkItemRelationsData, Preferences } from "../types/work-item";
-import { WorkItemLite, WorkItemComment } from "../azure-devops";
+import {
+  WorkItemDetails,
+  WorkItemRelationsData,
+  Preferences,
+} from "../types/work-item";
+import { WorkItemComment } from "../azure-devops";
 import { getWorkItemTypeIcon } from "./WorkItemMetadata";
 
 interface WorkItemRelationsProps {
@@ -11,6 +15,14 @@ interface WorkItemRelationsProps {
   isLoadingComments: boolean;
 }
 
+interface RelatedWorkItem {
+  id: number;
+  title: string;
+  type?: string;
+  teamProject?: string;
+  state?: string;
+}
+
 export function generateRelationsMarkdown({
   workItem,
   relations,
@@ -19,10 +31,10 @@ export function generateRelationsMarkdown({
   isLoadingComments,
 }: WorkItemRelationsProps): string {
   let markdown = `---\n\n`;
-  
+
   const org = getPreferenceValues<Preferences>().azureOrganization;
   const currentProject = workItem.fields["System.TeamProject"];
-  
+
   const makeLink = (id: number, title: string, teamProject?: string) => {
     if (!org) return `#${id} ${title}`;
     const project = teamProject || currentProject;
@@ -35,45 +47,57 @@ export function generateRelationsMarkdown({
     markdown += `Loading related work items...\n`;
   } else {
     const lines: string[] = [];
-    
+
     // Parent section on its own line
     if (relations.parentItem) {
       const pIcon = getWorkItemTypeIcon(relations.parentItem.type || "");
       lines.push(`Parent:`);
-      lines.push(`- ${pIcon} ${makeLink(relations.parentItem.id, relations.parentItem.title, (relations.parentItem as any).teamProject)}${(relations.parentItem as any).state ? ` • ${(relations.parentItem as any).state}` : ""}`);
+      const parentItem = relations.parentItem as RelatedWorkItem;
+      lines.push(
+        `- ${pIcon} ${makeLink(parentItem.id, parentItem.title, parentItem.teamProject)}${parentItem.state ? ` • ${parentItem.state}` : ""}`,
+      );
       lines.push(""); // blank line
     }
-    
+
     // Siblings
     if (relations.siblingItems.length) {
       lines.push("Siblings:");
       relations.siblingItems.forEach((s) => {
-        const sIcon = getWorkItemTypeIcon((s as any).type || "");
-        lines.push(`- ${sIcon} ${makeLink(s.id, s.title, (s as any).teamProject)}${(s as any).state ? ` • ${(s as any).state}` : ""}`);
+        const sibling = s as RelatedWorkItem;
+        const sIcon = getWorkItemTypeIcon(sibling.type || "");
+        lines.push(
+          `- ${sIcon} ${makeLink(sibling.id, sibling.title, sibling.teamProject)}${sibling.state ? ` • ${sibling.state}` : ""}`,
+        );
       });
       lines.push("");
     }
-    
+
     // Children
     if (relations.childItems.length) {
       lines.push("Children:");
       relations.childItems.forEach((c) => {
-        const cIcon = getWorkItemTypeIcon((c as any).type || "");
-        lines.push(`- ${cIcon} ${makeLink(c.id, c.title, (c as any).teamProject)}${(c as any).state ? ` • ${(c as any).state}` : ""}`);
+        const child = c as RelatedWorkItem;
+        const cIcon = getWorkItemTypeIcon(child.type || "");
+        lines.push(
+          `- ${cIcon} ${makeLink(child.id, child.title, child.teamProject)}${child.state ? ` • ${child.state}` : ""}`,
+        );
       });
       lines.push("");
     }
-    
+
     // Related
     if (relations.relatedItems.length) {
       lines.push("Related:");
       relations.relatedItems.forEach((r) => {
-        const rIcon = getWorkItemTypeIcon((r as any).type || "");
-        lines.push(`- ${rIcon} ${makeLink(r.id, r.title, (r as any).teamProject)}${(r as any).state ? ` • ${(r as any).state}` : ""}`);
+        const related = r as RelatedWorkItem;
+        const rIcon = getWorkItemTypeIcon(related.type || "");
+        lines.push(
+          `- ${rIcon} ${makeLink(related.id, related.title, related.teamProject)}${related.state ? ` • ${related.state}` : ""}`,
+        );
       });
       lines.push("");
     }
-    
+
     if (lines.length) {
       markdown += lines.join("\n") + "\n";
     } else {
@@ -83,29 +107,30 @@ export function generateRelationsMarkdown({
 
   // Comments section
   markdown += `---\n\n`;
-  
+
   if (isLoadingComments) {
     markdown += `Loading comments...\n`;
   } else if (comments.length > 0) {
     markdown += `## Comments (${comments.length})\n\n`;
-    
+
     // Sort comments by date (newest first)
-    const sortedComments = [...comments].sort((a, b) => 
-      new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()
+    const sortedComments = [...comments].sort(
+      (a, b) =>
+        new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime(),
     );
-    
+
     // Show only the 3 most recent comments to keep the view concise
     const recentComments = sortedComments.slice(0, 3);
-    
-    recentComments.forEach((comment, index) => {
+
+    recentComments.forEach((comment) => {
       const date = new Date(comment.createdDate).toLocaleDateString();
-      const time = new Date(comment.createdDate).toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      const time = new Date(comment.createdDate).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
       });
-      
+
       markdown += `**${comment.createdBy.displayName}** - ${date} at ${time}\n`;
-      
+
       // Clean and format comment text
       const cleanText = comment.text
         .replace(/<[^>]*>/g, "") // Remove HTML tags
@@ -115,10 +140,10 @@ export function generateRelationsMarkdown({
         .replace(/&gt;/g, ">") // Decode greater-than
         .replace(/&quot;/g, '"') // Decode quotes
         .trim();
-      
+
       markdown += `> ${cleanText}\n\n`;
     });
-    
+
     if (comments.length > 3) {
       markdown += `*... and ${comments.length - 3} more comments*\n\n`;
     }

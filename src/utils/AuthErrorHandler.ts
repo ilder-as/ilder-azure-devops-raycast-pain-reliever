@@ -2,7 +2,7 @@
  * Authentication error handling utilities for Azure DevOps CLI
  */
 
-import { showToast, Toast, showHUD, Action, ActionPanel, confirmAlert, Alert, open } from "@raycast/api";
+import { showToast, Toast, confirmAlert, Alert } from "@raycast/api";
 import { execFile } from "child_process";
 import { promisify } from "util";
 
@@ -13,9 +13,10 @@ const execFileAsync = promisify(execFile);
  */
 export function isAuthenticationError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-  
-  const errorMessage = (error as any).stderr || (error as any).message || "";
-  
+
+  const errorObj = error as { stderr?: string; message?: string };
+  const errorMessage = errorObj.stderr || errorObj.message || "";
+
   return (
     errorMessage.includes("Before you can run Azure DevOps commands") ||
     errorMessage.includes("az login") ||
@@ -57,15 +58,14 @@ Click "Copy Login Command" to copy it to your clipboard.`,
   if (options) {
     // Copy the login command to clipboard
     try {
-      const { execFile } = require("child_process");
       const loginCommand = "az login";
-      
-      execFile("pbcopy", [], (error: any, stdout: any, stderr: any) => {
+
+      execFile("pbcopy", [], (error: Error | null) => {
         if (error) {
           console.error("Failed to copy to clipboard:", error);
         }
       }).stdin?.end(loginCommand);
-      
+
       await showToast({
         style: Toast.Style.Success,
         title: "Login Command Copied",
@@ -90,8 +90,8 @@ Click "Copy Login Command" to copy it to your clipboard.`,
 /**
  * Wraps an async function with authentication error handling
  */
-export function withAuthErrorHandling<T extends any[], R>(
-  fn: (...args: T) => Promise<R>
+export function withAuthErrorHandling<T extends unknown[], R>(
+  fn: (...args: T) => Promise<R>,
 ): (...args: T) => Promise<R> {
   return async (...args: T): Promise<R> => {
     try {
@@ -114,18 +114,20 @@ export function createLoginActionProps() {
   return {
     title: "Copy Login Command",
     icon: { source: "clipboard" as const },
-    shortcut: { modifiers: ["cmd" as const, "shift" as const], key: "l" as const },
+    shortcut: {
+      modifiers: ["cmd" as const, "shift" as const],
+      key: "l" as const,
+    },
     onAction: async () => {
       try {
-        const { execFile } = require("child_process");
         const loginCommand = "az login";
-        
-        execFile("pbcopy", [], (error: any) => {
+
+        execFile("pbcopy", [], (error: Error | null) => {
           if (error) {
             console.error("Failed to copy to clipboard:", error);
           }
         }).stdin?.end(loginCommand);
-        
+
         await showToast({
           style: Toast.Style.Success,
           title: "Login Command Copied",
@@ -138,7 +140,7 @@ export function createLoginActionProps() {
           message: "az login",
         });
       }
-    }
+    },
   };
 }
 
@@ -147,7 +149,12 @@ export function createLoginActionProps() {
  */
 export async function checkAuthentication(): Promise<boolean> {
   try {
-    const { stdout } = await execFileAsync("az", ["account", "show", "--output", "json"]);
+    const { stdout } = await execFileAsync("az", [
+      "account",
+      "show",
+      "--output",
+      "json",
+    ]);
     return !!stdout && stdout.includes("user");
   } catch {
     return false;
@@ -161,6 +168,6 @@ export function getAuthErrorMessage(error: unknown): string {
   if (!isAuthenticationError(error)) {
     return "An error occurred. Please try again.";
   }
-  
+
   return "Azure DevOps authentication required. Please login using 'az login' in Terminal.";
 }

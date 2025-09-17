@@ -1,4 +1,12 @@
-import { Form, ActionPanel, Action, showToast, Toast, getPreferenceValues, Icon } from "@raycast/api";
+import {
+  Form,
+  ActionPanel,
+  Action,
+  showToast,
+  Toast,
+  getPreferenceValues,
+  Icon,
+} from "@raycast/api";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 
@@ -112,7 +120,13 @@ export default function Command() {
           preferences.azureOrganization!,
           "--project",
           preferences.azureProject!,
-        ]).catch(() => ({ stdout: "[]", stderr: "" } as { stdout: string; stderr: string })),
+        ]).catch(
+          () =>
+            ({ stdout: "[]", stderr: "" }) as {
+              stdout: string;
+              stderr: string;
+            },
+        ),
         runAz([
           "boards",
           "query",
@@ -124,7 +138,13 @@ export default function Command() {
           preferences.azureOrganization!,
           "--project",
           preferences.azureProject!,
-        ]).catch(() => ({ stdout: "[]", stderr: "" } as { stdout: string; stderr: string })),
+        ]).catch(
+          () =>
+            ({ stdout: "[]", stderr: "" }) as {
+              stdout: string;
+              stderr: string;
+            },
+        ),
       ]);
 
       // Process team members - extract unique assignees
