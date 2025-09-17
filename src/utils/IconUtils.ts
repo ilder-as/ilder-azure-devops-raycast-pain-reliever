@@ -84,7 +84,7 @@ export function getPullRequestStatusIcon(status: string, isDraft: boolean = fals
   switch (normalizedStatus) {
     case "active":
     case "open":
-      return Icon.CircleProgress;
+      return Icon.Circle;
     case "completed":
     case "merged":
       return Icon.CheckCircle;
