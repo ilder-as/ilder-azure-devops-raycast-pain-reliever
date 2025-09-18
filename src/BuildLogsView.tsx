@@ -13,6 +13,7 @@ import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 import { formatRelativeDate, formatDuration } from "./utils/DateUtils";
 import { getBuildStatusIcon, getBuildResultColor } from "./utils/IconUtils";
+import { getTargetBranch } from "./azure-devops/branch-operations";
 
 // Using runAz utility for Azure CLI execution
 
@@ -407,7 +408,7 @@ export default function BuildLogsView({
 
       // Get the actual source branch - handles PR merge refs by fetching PR details
       const actualSourceBranch = await getActualSourceBranch(buildDetails);
-      const targetBranch = preferences.sourceBranch || "main";
+      const targetBranch = await getTargetBranch();
 
       // Check if source branch is different from target branch
       if (actualSourceBranch === targetBranch) {

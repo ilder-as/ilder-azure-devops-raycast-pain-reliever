@@ -5,6 +5,7 @@
 import { getPreferenceValues, showToast, Toast } from "@raycast/api";
 import { runAz } from "../az-cli";
 import { fetchWorkItemDetails } from "./work-item-operations";
+import { getTargetBranch } from "./branch-operations";
 import type { Preferences, PullRequestResult } from "./types";
 
 /**
@@ -29,7 +30,7 @@ export async function createPullRequestFromWorkItem(
 
     const repositoryName =
       preferences.azureRepository || preferences.azureProject;
-    const targetBranch = preferences.sourceBranch || "main";
+    const targetBranch = await getTargetBranch();
 
     // Check if source branch is different from target branch
     if (branchName === targetBranch) {
