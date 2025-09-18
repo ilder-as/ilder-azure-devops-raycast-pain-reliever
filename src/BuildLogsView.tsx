@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 import { formatRelativeDate, formatDuration } from "./utils/DateUtils";
-import { getBuildStatusEmoji } from "./utils/IconUtils";
+import { getBuildStatusIcon, getBuildResultColor } from "./utils/IconUtils";
 
 // Using runAz utility for Azure CLI execution
 
@@ -165,9 +165,6 @@ export default function BuildLogsView({
   function generateMarkdown(): string {
     if (!buildDetails) return "Loading build details...";
 
-    const statusEmoji = getBuildStatusEmoji(
-      buildDetails.result || buildDetails.status,
-    );
     const duration = formatDuration(
       buildDetails.startTime,
       buildDetails.finishTime,
@@ -179,22 +176,10 @@ export default function BuildLogsView({
     const shortCommit =
       buildDetails.sourceVersion?.substring(0, 8) || "unknown";
 
-    let markdown = `# ${statusEmoji} ${definitionName}\n\n`;
+    let markdown = `# ${definitionName}\n\n`;
 
     // Show the detailed run description prominently
     markdown += `**${runDescription}**\n\n`;
-
-    // Build status and metadata
-    markdown += `**Status:** ${buildDetails.status}${buildDetails.result ? ` (${buildDetails.result})` : ""} • `;
-    markdown += `**Duration:** ${duration} • `;
-    markdown += `**Branch:** ${buildDetails.sourceBranch.replace("refs/heads/", "")} • `;
-    markdown += `**Commit:** ${shortCommit} • `;
-    markdown += `**Repository:** ${buildDetails.repository.name} • `;
-    markdown += `**Requested by:** ${buildDetails.requestedFor.displayName}\n\n`;
-
-    if (buildDetails.startTime) {
-      markdown += `**Started:** ${new Date(buildDetails.startTime).toLocaleString()}\n\n`;
-    }
 
     markdown += `---\n\n`;
 
@@ -596,11 +581,68 @@ export default function BuildLogsView({
     );
   }
 
+  // Get status icon and color for the detail view
+  const statusIcon = buildDetails
+    ? getBuildStatusIcon(buildDetails.result || buildDetails.status)
+    : Icon.QuestionMarkCircle;
+  const statusColor = buildDetails
+    ? buildDetails.result
+      ? getBuildResultColor(buildDetails.result)
+      : getBuildResultColor(buildDetails.status)
+    : undefined;
+
   return (
     <Detail
       isLoading={isLoading}
       markdown={generateMarkdown()}
       navigationTitle={`Build #${buildNumber}`}
+      metadata={
+        buildDetails ? (
+          <Detail.Metadata>
+            <Detail.Metadata.Label
+              title="Status"
+              text={buildDetails.result || buildDetails.status}
+              icon={{ source: statusIcon, tintColor: statusColor }}
+            />
+            <Detail.Metadata.Separator />
+            <Detail.Metadata.Label 
+              title="Repository" 
+              text={buildDetails.repository.name} 
+            />
+            <Detail.Metadata.Label 
+              title="Branch" 
+              text={buildDetails.sourceBranch.replace("refs/heads/", "")} 
+            />
+            <Detail.Metadata.Label 
+              title="Commit" 
+              text={buildDetails.sourceVersion?.substring(0, 8) || "unknown"} 
+            />
+            <Detail.Metadata.Separator />
+            <Detail.Metadata.Label 
+              title="Requested By" 
+              text={buildDetails.requestedFor.displayName} 
+            />
+            {buildDetails.startTime && buildDetails.finishTime && (
+              <Detail.Metadata.Label
+                title="Duration"
+                text={formatDuration(buildDetails.startTime, buildDetails.finishTime)}
+              />
+            )}
+            {buildDetails.startTime && (
+              <Detail.Metadata.Label
+                title="Started"
+                text={new Date(buildDetails.startTime).toLocaleString()}
+              />
+            )}
+            {buildDetails.finishTime && (
+              <Detail.Metadata.Label
+                title="Finished"
+                text={new Date(buildDetails.finishTime).toLocaleString()}
+              />
+            )}
+          </Detail.Metadata>
+        ) : undefined
+      }
       actions={
         <ActionPanel>
           <ActionPanel.Section title="Build Actions">
