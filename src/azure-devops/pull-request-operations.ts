@@ -62,6 +62,7 @@ This PR was created from the work item activation workflow.`;
       prTitle,
       "--description",
       prDescription,
+      "--draft",
       "--output",
       "json",
       "--organization",
