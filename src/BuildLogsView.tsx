@@ -166,16 +166,9 @@ export default function BuildLogsView({
   function generateMarkdown(): string {
     if (!buildDetails) return "Loading build details...";
 
-    const duration = formatDuration(
-      buildDetails.startTime,
-      buildDetails.finishTime,
-    );
-
     // Get run description from trigger info
     const runDescription =
       buildDetails.triggerInfo?.["ci.message"] || "Manual run";
-    const shortCommit =
-      buildDetails.sourceVersion?.substring(0, 8) || "unknown";
 
     let markdown = `# ${definitionName}\n\n`;
 
@@ -606,27 +599,30 @@ export default function BuildLogsView({
               icon={{ source: statusIcon, tintColor: statusColor }}
             />
             <Detail.Metadata.Separator />
-            <Detail.Metadata.Label 
-              title="Repository" 
-              text={buildDetails.repository.name} 
+            <Detail.Metadata.Label
+              title="Repository"
+              text={buildDetails.repository.name}
             />
-            <Detail.Metadata.Label 
-              title="Branch" 
-              text={buildDetails.sourceBranch.replace("refs/heads/", "")} 
+            <Detail.Metadata.Label
+              title="Branch"
+              text={buildDetails.sourceBranch.replace("refs/heads/", "")}
             />
-            <Detail.Metadata.Label 
-              title="Commit" 
-              text={buildDetails.sourceVersion?.substring(0, 8) || "unknown"} 
+            <Detail.Metadata.Label
+              title="Commit"
+              text={buildDetails.sourceVersion?.substring(0, 8) || "unknown"}
             />
             <Detail.Metadata.Separator />
-            <Detail.Metadata.Label 
-              title="Requested By" 
-              text={buildDetails.requestedFor.displayName} 
+            <Detail.Metadata.Label
+              title="Requested By"
+              text={buildDetails.requestedFor.displayName}
             />
             {buildDetails.startTime && buildDetails.finishTime && (
               <Detail.Metadata.Label
                 title="Duration"
-                text={formatDuration(buildDetails.startTime, buildDetails.finishTime)}
+                text={formatDuration(
+                  buildDetails.startTime,
+                  buildDetails.finishTime,
+                )}
               />
             )}
             {buildDetails.startTime && (

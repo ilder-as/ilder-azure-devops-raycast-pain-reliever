@@ -7,7 +7,7 @@ import { runAz } from "../az-cli";
 import type { Preferences } from "./types";
 
 // Cache for default branch to avoid repeated API calls
-let defaultBranchCache: { [repoKey: string]: string } = {};
+const defaultBranchCache: { [repoKey: string]: string } = {};
 
 /**
  * Gets the default branch for a repository from Azure DevOps
@@ -15,14 +15,15 @@ let defaultBranchCache: { [repoKey: string]: string } = {};
 export async function getRepositoryDefaultBranch(): Promise<string> {
   try {
     const preferences = getPreferenceValues<Preferences>();
-    
+
     if (!preferences.azureOrganization || !preferences.azureProject) {
       return "main"; // fallback if not configured
     }
 
-    const repositoryName = preferences.azureRepository || preferences.azureProject;
+    const repositoryName =
+      preferences.azureRepository || preferences.azureProject;
     const cacheKey = `${preferences.azureOrganization}/${preferences.azureProject}/${repositoryName}`;
-    
+
     // Return cached value if available
     if (defaultBranchCache[cacheKey]) {
       return defaultBranchCache[cacheKey];
@@ -49,8 +50,10 @@ export async function getRepositoryDefaultBranch(): Promise<string> {
 
     // Cache the result
     defaultBranchCache[cacheKey] = defaultBranch;
-    console.log(`[getRepositoryDefaultBranch] Repository ${repositoryName} default branch: ${defaultBranch}`);
-    
+    console.log(
+      `[getRepositoryDefaultBranch] Repository ${repositoryName} default branch: ${defaultBranch}`,
+    );
+
     return defaultBranch;
   } catch (error) {
     console.error("Failed to get repository default branch:", error);
@@ -63,12 +66,12 @@ export async function getRepositoryDefaultBranch(): Promise<string> {
  */
 export async function getTargetBranch(): Promise<string> {
   const preferences = getPreferenceValues<Preferences>();
-  
+
   // If user has explicitly configured a source branch, use that
   if (preferences.sourceBranch) {
     return preferences.sourceBranch;
   }
-  
+
   // Otherwise, get the repository's actual default branch
   return await getRepositoryDefaultBranch();
 }
