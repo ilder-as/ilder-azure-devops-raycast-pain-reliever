@@ -7,6 +7,7 @@ import {
   getPreferenceValues,
   Icon,
 } from "@raycast/api";
+import { showFailureToast } from "@raycast/utils";
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
@@ -15,6 +16,7 @@ import {
   getPullRequestStatusIcon,
   getPullRequestStatusColor,
 } from "./utils/IconUtils";
+import { buildPullRequestUrl } from "./utils/UrlUtils";
 import { getCurrentUser } from "./azure-devops";
 
 interface Preferences {
@@ -136,12 +138,9 @@ export default function Command() {
         );
       }
     } catch (error) {
-      await showToast(
-        Toast.Style.Failure,
-        "Error",
-        "Failed to fetch pull requests",
-      );
-      console.error(error);
+      await showFailureToast(error, {
+        title: "Failed to fetch pull requests",
+      });
       setPullRequests([]);
     } finally {
       setIsLoading(false);
@@ -155,7 +154,12 @@ export default function Command() {
     const projectName = pr.repository.project.name;
     const repoName = pr.repository.name;
 
-    return `${preferences.azureOrganization}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
+    return buildPullRequestUrl(
+      preferences.azureOrganization,
+      projectName,
+      repoName,
+      pr.pullRequestId,
+    );
   }
 
   function getReviewStatus(pr: PullRequest, currentUserEmail: string): string {

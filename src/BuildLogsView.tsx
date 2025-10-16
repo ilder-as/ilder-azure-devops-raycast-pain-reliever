@@ -13,6 +13,7 @@ import { runAz } from "./az-cli";
 import PullRequestDetailsView from "./PullRequestDetailsView";
 import { formatRelativeDate, formatDuration } from "./utils/DateUtils";
 import { getBuildStatusIcon, getBuildResultColor } from "./utils/IconUtils";
+import { buildBuildUrl, buildPullRequestUrl } from "./utils/UrlUtils";
 import { getTargetBranch } from "./azure-devops/branch-operations";
 
 // Using runAz utility for Azure CLI execution
@@ -200,7 +201,7 @@ export default function BuildLogsView({
     const preferences = getPreferenceValues<Preferences>();
     if (!preferences.azureOrganization || !preferences.azureProject) return "";
 
-    return `${preferences.azureOrganization}/${encodeURIComponent(preferences.azureProject)}/_build/results?buildId=${buildId}`;
+    return buildBuildUrl(preferences.azureOrganization, preferences.azureProject, buildId);
   }
 
   async function checkForExistingPR(buildDetails: BuildDetails) {
@@ -518,7 +519,7 @@ export default function BuildLogsView({
 
     if (!projectName || !repoName) return "";
 
-    return `${preferences.azureOrganization}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${pr.pullRequestId}`;
+    return buildPullRequestUrl(preferences.azureOrganization, projectName, repoName, pr.pullRequestId);
   }
 
   // Auto-refresh every 10 seconds for active builds

@@ -34,6 +34,7 @@ import {
   cleanDescription,
 } from "./components/WorkItemMetadata";
 import { generateRelationsMarkdown } from "./components/WorkItemRelations";
+import { buildWorkItemUrl } from "./utils/UrlUtils";
 import WorkItemActions from "./components/WorkItemActions";
 import AddCommentForm from "./components/AddCommentForm";
 import RelatedItemsList from "./components/RelatedItemsList";
@@ -303,7 +304,7 @@ export default function WorkItemDetailsView({
     const projectToUse =
       projectFromWorkItem || preferences.azureProject || "Unknown";
 
-    return `${preferences.azureOrganization}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItem.id}`;
+    return buildWorkItemUrl(preferences.azureOrganization, projectToUse, workItem.id);
   }
 
   function generateMarkdown(): string {

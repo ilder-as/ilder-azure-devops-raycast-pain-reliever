@@ -209,19 +209,19 @@ export async function addCommentToWorkItem(
 
     const { stdout } = await runAz(args);
     const json = JSON.parse(stdout || "{}");
-    if (json && (json.id || json.text)) {
-      try {
-        await fs.unlink(tmpFile);
-      } catch (cleanupError) {
-        console.error("Failed to cleanup temp file:", cleanupError);
-      }
-      return { success: true };
-    }
+
+    // Clean up temp file on success
     try {
       await fs.unlink(tmpFile);
     } catch (cleanupError) {
       console.error("Failed to cleanup temp file:", cleanupError);
     }
+
+    // Return success if we got a valid response
+    if (json && (json.id || json.text)) {
+      return { success: true };
+    }
+
     return { success: true };
   } catch (e: unknown) {
     // Enhanced error logging for debugging

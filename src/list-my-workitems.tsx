@@ -14,6 +14,7 @@ import WorkItemDetailsView from "./WorkItemDetailsView";
 import { getCurrentUser, convertToBranchName } from "./azure-devops";
 import { formatRelativeDate } from "./utils/DateUtils";
 import { getWorkItemTypeIcon, getStateColor } from "./utils/IconUtils";
+import { buildWorkItemUrl } from "./utils/UrlUtils";
 
 interface Preferences {
   branchPrefix: string;
@@ -116,7 +117,7 @@ export default function Command() {
     const projectToUse =
       projectFromWorkItem || preferences.azureProject || "Unknown";
 
-    return `${preferences.azureOrganization}/${encodeURIComponent(projectToUse)}/_workitems/edit/${workItem.id}`;
+    return buildWorkItemUrl(preferences.azureOrganization, projectToUse, workItem.id);
   }
 
   useEffect(() => {

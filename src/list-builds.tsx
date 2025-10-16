@@ -12,6 +12,7 @@ import BuildLogsView from "./BuildLogsView";
 import { runAz } from "./az-cli";
 import { formatDuration } from "./utils/DateUtils";
 import { getBuildStatusIcon, getBuildResultColor } from "./utils/IconUtils";
+import { buildBuildUrl } from "./utils/UrlUtils";
 import { AuthenticationEmptyView } from "./components/AuthenticationEmptyView";
 import { isAuthenticationError } from "./utils/AuthErrorHandler";
 
@@ -205,7 +206,7 @@ export default function Command() {
     const preferences = getPreferenceValues<Preferences>();
     if (!preferences.azureOrganization || !preferences.azureProject) return "";
 
-    return `${preferences.azureOrganization}/${encodeURIComponent(preferences.azureProject || "")}/_build/results?buildId=${build.id}`;
+    return buildBuildUrl(preferences.azureOrganization, preferences.azureProject, build.id);
   }
 
   function getActiveSectionTitle(): string {

@@ -6,6 +6,7 @@ import { getPreferenceValues, showToast, Toast } from "@raycast/api";
 import { runAz } from "../az-cli";
 import { fetchWorkItemDetails } from "./work-item-operations";
 import { getTargetBranch } from "./branch-operations";
+import { buildPullRequestUrl } from "../utils/UrlUtils";
 import type { Preferences, PullRequestResult } from "./types";
 
 /**
@@ -100,7 +101,12 @@ This PR was created from the work item activation workflow.`;
     }
 
     // Generate PR URL
-    const prUrl = `${preferences.azureOrganization}/${encodeURIComponent(preferences.azureProject)}/_git/${encodeURIComponent(repositoryName)}/pullrequest/${prData.pullRequestId}`;
+    const prUrl = buildPullRequestUrl(
+      preferences.azureOrganization,
+      preferences.azureProject,
+      repositoryName,
+      prData.pullRequestId,
+    );
 
     return {
       pullRequestId: prData.pullRequestId,

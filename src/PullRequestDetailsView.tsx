@@ -10,6 +10,7 @@ import {
 import { useState, useEffect } from "react";
 import { runAz } from "./az-cli";
 import { getPullRequestStatusEmoji } from "./utils/IconUtils";
+import { buildPullRequestUrl } from "./utils/UrlUtils";
 
 interface Preferences {
   branchPrefix: string;
@@ -214,7 +215,7 @@ export default function PullRequestDetailsView({
     const projectName = prDetails.repository.project.name;
     const repoName = prDetails.repository.name;
 
-    return `${preferences.azureOrganization}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}/pullrequest/${prDetails.pullRequestId}`;
+    return buildPullRequestUrl(preferences.azureOrganization, projectName, repoName, prDetails.pullRequestId);
   }
 
   useEffect(() => {

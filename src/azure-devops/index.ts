@@ -28,27 +28,3 @@ export * from "./work-item-relations";
 
 // Export high-level workflows
 export * from "./workflows";
-
-/**
- * Legacy compatibility - re-export under original function names
- * This ensures existing imports continue to work during migration
- */
-export { getCurrentUser } from "./user-operations";
-export {
-  fetchWorkItemDetails,
-  activateWorkItem,
-  getWorkItemLite,
-} from "./work-item-operations";
-export {
-  convertToBranchName,
-  findExistingBranchesForWorkItem,
-  createBranch,
-} from "./branch-operations";
-export { createPullRequestFromWorkItem } from "./pull-request-operations";
-export {
-  getWorkItemCommentsCount,
-  getWorkItemComments,
-  addCommentToWorkItem,
-} from "./work-item-comments";
-export { getRelatedWorkItems } from "./work-item-relations";
-export { activateAndCreatePR } from "./workflows";

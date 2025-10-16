@@ -1,6 +1,26 @@
-import { List, ActionPanel, Action, Icon } from "@raycast/api";
+import { List, ActionPanel, Action, Icon, getPreferenceValues } from "@raycast/api";
+
+interface Preferences {
+  azureOrganization?: string;
+  azureProject?: string;
+}
 
 export function AuthenticationEmptyView() {
+  const preferences = getPreferenceValues<Preferences>();
+
+  // Generate dynamic setup command based on preferences
+  let setupCommand = "az login && az extension add --name azure-devops";
+
+  if (preferences.azureOrganization || preferences.azureProject) {
+    setupCommand += " && az devops configure --defaults";
+    if (preferences.azureOrganization) {
+      setupCommand += ` organization=${preferences.azureOrganization}`;
+    }
+    if (preferences.azureProject) {
+      setupCommand += ` project=${preferences.azureProject}`;
+    }
+  }
+
   return (
     <List.EmptyView
       icon="🔐"
@@ -19,7 +39,7 @@ az login
           />
           <Action.CopyToClipboard
             title="Copy Full Setup Commands"
-            content="az login && az extension add --name azure-devops && az devops configure --defaults organization=https://dev.azure.com/AKSONewBuild project=WeDo"
+            content={setupCommand}
             shortcut={{ modifiers: ["cmd"], key: "c" }}
             icon={Icon.Code}
           />
