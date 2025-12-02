@@ -84,14 +84,14 @@ export default function PullRequestDetailsView({
       // Check if required configuration is available
       if (!preferences.azureOrganization) {
         throw new Error(
-          "Azure DevOps organization URL is required. Please configure it in preferences.",
+          "Azure DevOps organization URL is required. Please configure it in preferences."
         );
       }
 
       const projectToUse = project || preferences.azureProject;
       if (!projectToUse) {
         throw new Error(
-          "Azure DevOps project name is required. Please configure it in preferences.",
+          "Azure DevOps project name is required. Please configure it in preferences."
         );
       }
 
@@ -117,7 +117,7 @@ export default function PullRequestDetailsView({
       await showToast(
         Toast.Style.Success,
         "Loaded!",
-        `PR #${prData.pullRequestId}: ${prData.title}`,
+        `PR #${prData.pullRequestId}: ${prData.title}`
       );
     } catch (error) {
       const errorMessage = "Failed to fetch pull request details";
@@ -134,7 +134,7 @@ export default function PullRequestDetailsView({
 
     const statusEmoji = getPullRequestStatusEmoji(
       prDetails.status,
-      prDetails.isDraft,
+      prDetails.isDraft
     );
     const sourceBranch = prDetails.sourceRefName.replace("refs/heads/", "");
     const targetBranch = prDetails.targetRefName.replace("refs/heads/", "");
@@ -173,7 +173,7 @@ export default function PullRequestDetailsView({
       markdown += `## Latest Commit\n\n`;
       const shortCommit = prDetails.lastMergeSourceCommit.commitId.substring(
         0,
-        8,
+        8
       );
       markdown += `**${shortCommit}**: ${prDetails.lastMergeSourceCommit.comment}\n\n`;
     }
@@ -280,6 +280,12 @@ export default function PullRequestDetailsView({
                   content={prDetails.sourceRefName.replace("refs/heads/", "")}
                   icon={Icon.Tree}
                   shortcut={{ modifiers: ["cmd"], key: "b" }}
+                />
+                <Action.CopyToClipboard
+                  title="Copy Branch Checkout Command"
+                  content={`git pull\ngit checkout ${prDetails.sourceRefName.replace("refs/heads/", "")}`}
+                  icon={Icon.Code}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "b" }}
                 />
               </>
             )}
