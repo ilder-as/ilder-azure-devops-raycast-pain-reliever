@@ -244,7 +244,7 @@ export default function PullRequestDetailsView({
     <Detail
       isLoading={isLoading}
       markdown={generateMarkdown()}
-      navigationTitle={`PR #${pullRequestId}${initialTitle ? `: ${initialTitle}` : ""}`}
+      navigationTitle={`PR #${pullRequestId}${initialTitle ?? ""}`}
       actions={
         <ActionPanel>
           <ActionPanel.Section title="Pull Request Actions">
@@ -283,7 +283,7 @@ export default function PullRequestDetailsView({
                 />
                 <Action.CopyToClipboard
                   title="Copy Branch Checkout Command"
-                  content={`git pull\ngit checkout ${prDetails.sourceRefName.replace("refs/heads/", "")}`}
+                  content={`git fetch && git checkout ${prDetails.sourceRefName.replace("refs/heads/", "")}`}
                   icon={Icon.Code}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "b" }}
                 />
