@@ -8,6 +8,8 @@ export interface Preferences {
   azureProject?: string;
   azureRepository?: string;
   sourceBranch: string;
+  azureConfigDir?: string;
+  azureTenant?: string;
 }
 
 export interface WorkItemDetails {

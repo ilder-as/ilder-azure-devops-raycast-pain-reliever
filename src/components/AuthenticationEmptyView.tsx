@@ -1,27 +1,24 @@
 import { List, ActionPanel, Action, Icon } from "@raycast/api";
+import { getLoginCommand } from "../az-env";
 
 export function AuthenticationEmptyView() {
+  const loginCommand = getLoginCommand();
+
   return (
     <List.EmptyView
       icon="🔐"
       title="Authentication Required"
       description={`Open Terminal and run this command:
 
-az login
+${loginCommand}
 
 (Press Enter to copy)`}
       actions={
         <ActionPanel>
           <Action.CopyToClipboard
-            title="Copy: Az Login"
-            content="az login"
+            title="Copy Login Command"
+            content={loginCommand}
             icon={Icon.Clipboard}
-          />
-          <Action.CopyToClipboard
-            title="Copy Full Setup Commands"
-            content="az login && az extension add --name azure-devops && az devops configure --defaults organization=https://dev.azure.com/AKSONewBuild project=WeDo"
-            shortcut={{ modifiers: ["cmd"], key: "c" }}
-            icon={Icon.Code}
           />
           <Action.OpenInBrowser
             title="Azure Devops Cli Documentation"
