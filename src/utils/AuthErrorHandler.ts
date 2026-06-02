@@ -5,6 +5,7 @@
 import { showToast, Toast, confirmAlert, Alert } from "@raycast/api";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { azEnv, getLoginCommand } from "../az-env";
 
 const execFileAsync = promisify(execFile);
 
@@ -38,11 +39,13 @@ export async function handleAuthenticationError(error: unknown): Promise<void> {
     throw error;
   }
 
+  const loginCommand = getLoginCommand();
+
   const options = await confirmAlert({
     title: "Azure DevOps Authentication Required",
     message: `Open Terminal and run this command:
 
-az login
+${loginCommand}
 
 Click "Copy Login Command" to copy it to your clipboard.`,
     primaryAction: {
@@ -58,8 +61,6 @@ Click "Copy Login Command" to copy it to your clipboard.`,
   if (options) {
     // Copy the login command to clipboard
     try {
-      const loginCommand = "az login";
-
       execFile("pbcopy", [], (error: Error | null) => {
         if (error) {
           console.error("Failed to copy to clipboard:", error);
@@ -69,20 +70,20 @@ Click "Copy Login Command" to copy it to your clipboard.`,
       await showToast({
         style: Toast.Style.Success,
         title: "Login Command Copied",
-        message: "Paste and run in Terminal: az login",
+        message: "Paste and run the copied command in Terminal",
       });
     } catch {
       await showToast({
         style: Toast.Style.Failure,
         title: "Please run in Terminal:",
-        message: "az login",
+        message: loginCommand,
       });
     }
   } else {
     await showToast({
       style: Toast.Style.Failure,
       title: "Authentication Required",
-      message: "Run 'az login' in Terminal to continue",
+      message: "Run the login command in Terminal to continue",
     });
   }
 }
@@ -120,7 +121,7 @@ export function createLoginActionProps() {
     },
     onAction: async () => {
       try {
-        const loginCommand = "az login";
+        const loginCommand = getLoginCommand();
 
         execFile("pbcopy", [], (error: Error | null) => {
           if (error) {
@@ -131,13 +132,13 @@ export function createLoginActionProps() {
         await showToast({
           style: Toast.Style.Success,
           title: "Login Command Copied",
-          message: "Paste and run in Terminal: az login",
+          message: "Paste and run the copied command in Terminal",
         });
       } catch {
         await showToast({
           style: Toast.Style.Failure,
           title: "Please run in Terminal:",
-          message: "az login",
+          message: getLoginCommand(),
         });
       }
     },
@@ -149,12 +150,11 @@ export function createLoginActionProps() {
  */
 export async function checkAuthentication(): Promise<boolean> {
   try {
-    const { stdout } = await execFileAsync("az", [
-      "account",
-      "show",
-      "--output",
-      "json",
-    ]);
+    const { stdout } = await execFileAsync(
+      "az",
+      ["account", "show", "--output", "json"],
+      { env: azEnv() },
+    );
     return !!stdout && stdout.includes("user");
   } catch {
     return false;

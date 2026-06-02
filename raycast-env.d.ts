@@ -17,7 +17,11 @@ type ExtensionPreferences = {
   /** Azure DevOps Repository (Optional) - Repository name for branch operations - defaults to project name if not specified */
   "azureRepository"?: string,
   /** Source Branch - The branch to create new branches from */
-  "sourceBranch": string
+  "sourceBranch": string,
+  /** Azure CLI Config Dir (Optional) - Dedicated Azure CLI config dir for this extension (default: ~/.azure-raycast). Isolates auth from your terminal so switching subscriptions never logs you out. */
+  "azureConfigDir"?: string,
+  /** Azure Tenant ID (Optional) - Entra tenant ID for your DevOps org. Only used to build the suggested one-time login command. */
+  "azureTenant"?: string
 }
 
 /** Preferences accessible in all the extension's commands */

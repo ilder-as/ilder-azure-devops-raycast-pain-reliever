@@ -4,6 +4,7 @@ import {
   isAuthenticationError,
   handleAuthenticationError,
 } from "./utils/AuthErrorHandler";
+import { azEnv } from "./az-env";
 
 const execFileAsync = promisify(execFile);
 
@@ -44,7 +45,10 @@ export async function runAz(
   const az = await resolveAz();
 
   try {
-    return await execFileAsync(az, args, { maxBuffer: 2 * 1024 * 1024 });
+    return await execFileAsync(az, args, {
+      env: azEnv(),
+      maxBuffer: 2 * 1024 * 1024,
+    });
   } catch (error) {
     // Check if this is an authentication error
     if (isAuthenticationError(error)) {

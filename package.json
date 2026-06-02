@@ -97,6 +97,22 @@
       "type": "textfield",
       "default": "main",
       "required": false
+    },
+    {
+      "name": "azureConfigDir",
+      "title": "Azure CLI Config Dir (Optional)",
+      "description": "Dedicated Azure CLI config dir for this extension (default: ~/.azure-raycast). Isolates auth from your terminal so switching subscriptions never logs you out.",
+      "type": "textfield",
+      "placeholder": "~/.azure-raycast",
+      "required": false
+    },
+    {
+      "name": "azureTenant",
+      "title": "Azure Tenant ID (Optional)",
+      "description": "Entra tenant ID for your DevOps org. Only used to build the suggested one-time login command.",
+      "type": "textfield",
+      "placeholder": "00000000-0000-0000-0000-000000000000",
+      "required": false
     }
   ],
   "dependencies": {
